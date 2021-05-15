@@ -2,11 +2,6 @@
 
 LOCAL_REGION_SIZE = 13
 
-BLACK_STONE = "X"
-WHITE_STONE = "O"
-INTERSECTION = "+"
-MIDSECTION = "-"
-
 board = {
     (0, 0): {
         "player": "GOD",
