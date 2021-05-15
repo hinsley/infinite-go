@@ -1,23 +1,53 @@
 # main.py
 
-import curses
+LOCAL_REGION_SIZE = 13
 
 BLACK_STONE = "X"
 WHITE_STONE = "O"
 INTERSECTION = "+"
 MIDSECTION = "-"
 
-def draw():
-    screen = curses.initscr()
-    for i in range(curses.LINES - 1):
-        for j in range(curses.COLS - 1):
-            if i % 2 == 0 and j % 2 == 0:
-                screen.addch(i, j, "|")
-            elif i % 2 == 1:
-                screen.addch(i, j, INTERSECTION if j % 6 == 0 else BLACK_STONE if j % 6 == 2 else WHITE_STONE if j % 6 == 4 else MIDSECTION)
-    curses.curs_set(1)
-    screen.refresh()
-    curses.napms(3000)
+board = {
+    (0, 0): {
+        "player": "GOD",
+        "status": "unlocked",
+    }
+}
+
+def draw(board, cursor_coords):
+    """
+    Draw the local region.
+    """
+    
+    drawing = ""
+    for row in range(-LOCAL_REGION_SIZE // 2 + 1, LOCAL_REGION_SIZE // 2 + 1):
+        for col in range(-LOCAL_REGION_SIZE // 2 + 1, LOCAL_REGION_SIZE // 2 + 1):
+            # Draw cursor brackets.
+            if row == 0:
+                if col == 0:
+                    drawing += "["
+                elif col == 1:
+                    drawing += "]"
+                else:
+                    drawing += "-"
+            # Draw divider lines.
+            else:
+                drawing += "-"
+            
+            coords = cursor_coords[0] + col, cursor_coords[1] + row
+            # Draw stone-place position.
+            if coords not in board:
+                drawing += "+"
+            elif board[coords]["status"] == "unlocked":
+                drawing += "o"
+            elif board[coords]["status"] == "locked":
+                drawing += "x"
+            elif board[coords]["status"] == "self-locked" and board[coords]["status"] != "YOU (CHANGE THIS TO ACTUALLY CHECK WHETHER IT'S YOURS)":
+                drawing += "X"
+            else:
+                drawing += "!"
+        drawing += "-\n"
+    print(drawing)
 
 if __name__ == "__main__":
-    draw()
+    draw(board, (0, 0))
