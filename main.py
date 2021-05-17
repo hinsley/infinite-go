@@ -49,19 +49,27 @@ def draw(board, cursor_coords):
 def handle_command(cursor, command):
     # TODO: Yes, I know that this control flow is unbecoming. I
     # will make a separate module for this later.
-    if command == "up":
-        cursor = (cursor[0], cursor[1] - 1)
-    elif command == "right":
-        cursor = (cursor[0] + 1, cursor[1])
-    elif command == "down":
-        cursor = (cursor[0], cursor[1] + 1)
-    elif command == "left":
-        cursor = (cursor[0] - 1, cursor[1])
-    elif command == "go":
-        if cursor in board:
-            print("You cannot place a stone there, as there is another already present.")
+    words = command.split()
+    if words[0] == "up":
+        units = 1 if len(words) == 1 else int(words[1])
+        cursor = (cursor[0], cursor[1] - units)
+    elif words[0] == "right":
+        units = 1 if len(words) == 1 else int(words[1])
+        cursor = (cursor[0] + units, cursor[1])
+    elif words[0] == "down":
+        units = 1 if len(words) == 1 else int(words[1])
+        cursor = (cursor[0], cursor[1] + units)
+    elif words[0] == "left":
+        units = 1 if len(words) == 1 else int(words[1])
+        cursor = (cursor[0] - units, cursor[1])
+    elif words[0] == "move":
+        cursor = (int(words[1]), int(words[2]))
+    elif words[0] == "place":
+        stone_pos = cursor if len(words) == 1 else (int(words[1]), int(words[2]))
+        if stone_pos in board:
+            print(f"You cannot place a stone at {stone_pos}, as there is another already present.")
         else:
-            board[cursor] = {
+            board[stone_pos] = {
                 "player": "You",
                 "status": "locked",
             }
