@@ -8,7 +8,7 @@ player = "Alice"
 board = {
     (0, 0): {
         "player": "GOD",
-        "status": "locked",
+        "status": "unlocked",
     }
 }
 
@@ -80,7 +80,8 @@ def handle_command(player, cursor, command):
 
         # Iterate over the local region, checking the relevant locking and existence criteria.
         stone_in_region = False
-        locked_stones = 0
+        nearby_locked_stone = None
+        nearby_self_locked_stones = []
         for row in range(-LOCAL_REGION_SIZE // 2 + 1, LOCAL_REGION_SIZE // 2 + 1):
             for col in range(-LOCAL_REGION_SIZE // 2 + 1, LOCAL_REGION_SIZE // 2 + 1):
                 coords = (stone_pos[0] + row, stone_pos[1] + col)
@@ -88,19 +89,23 @@ def handle_command(player, cursor, command):
                     stone_in_region = True
                     # Check if the stone is locked.
                     if board[coords]["status"] == "locked":
-                        locked_stones += 1
                         # Check if the locked stone belongs to the player.
                         if board[coords]["player"] == player:
                             valid_move = False
                             print(f"You cannot place a stone at {stone_pos}, as you have a locked stone at {coords}.")
+                        # Store the coordinates of the locked stone.
+                        elif nearby_locked_stone is None:
+                            nearby_locked_stone = coords
                         # Check that the locked stone threshold has not been met.
-                        if locked_stones > 1:
+                        else:
                             valid_move = False
                             print(f"You cannot place a stone at {stone_pos}, as there are multiple locked stones in the local region.")
                     # Check if the stone is self-locked.
                     elif board[coords]["status"] == "self-locked":
                         # Check if the self-locked stone belongs to the player.
-                        if board[coords]["player"] != player:
+                        if board[coords]["player"] == player:
+                            nearby_self_locked_stones.append(coords)
+                        else:
                             valid_move = False
                             print(f"You cannot place a stone at {stone_pos}, as there is a self-locked stone at {coords} belonging to {board[coords]['player']}.")
 
@@ -111,6 +116,10 @@ def handle_command(player, cursor, command):
 
         # If valid, place stone.
         if valid_move:
+            if nearby_locked_stone is not None:
+                board[nearby_locked_stone]["status"] = "self-locked"
+            for coords in nearby_self_locked_stones:
+                board[coords]["status"] = "unlocked"
             board[stone_pos] = {
                 "player": player,
                 "status": "locked",
