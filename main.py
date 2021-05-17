@@ -3,15 +3,16 @@
 LOCAL_REGION_SIZE = 13
 
 cursor = (0, 0)
+player = "Alice"
 
 board = {
     (0, 0): {
         "player": "GOD",
-        "status": "unlocked",
+        "status": "locked",
     }
 }
 
-def draw(board, cursor_coords):
+def draw(board, player, cursor_coords):
     """
     Draw the local region.
     """
@@ -31,7 +32,7 @@ def draw(board, cursor_coords):
             else:
                 drawing += "-"
             
-            coords = cursor_coords[0] + col, cursor_coords[1] + row
+            coords = (cursor_coords[0] + col, cursor_coords[1] + row)
             # Draw stone-place position.
             if coords not in board:
                 drawing += "+"
@@ -39,14 +40,14 @@ def draw(board, cursor_coords):
                 drawing += "o"
             elif board[coords]["status"] == "locked":
                 drawing += "x"
-            elif board[coords]["status"] == "self-locked" and board[coords]["status"] != "YOU (CHANGE THIS TO ACTUALLY CHECK WHETHER IT'S YOURS)":
+            elif board[coords]["status"] == "self-locked" and board[coords]["player"] != player:
                 drawing += "X"
             else:
                 drawing += "!"
         drawing += "-\n"
     print(drawing)
 
-def handle_command(cursor, command):
+def handle_command(player, cursor, command):
     # TODO: Yes, I know that this control flow is unbecoming. I
     # will make a separate module for this later.
     words = command.split()
@@ -64,6 +65,8 @@ def handle_command(cursor, command):
         cursor = (cursor[0] - units, cursor[1])
     elif words[0] == "move":
         cursor = (int(words[1]), int(words[2]))
+    elif words[0] == "player":
+        player = words[1].capitalize()
     elif words[0] == "place":
         stone_pos = cursor if len(words) == 1 else (int(words[1]), int(words[2]))
         
@@ -87,7 +90,7 @@ def handle_command(cursor, command):
                     if board[coords]["status"] == "locked":
                         locked_stones += 1
                         # Check if the locked stone belongs to the player.
-                        if board[coords]["player"] == "You":
+                        if board[coords]["player"] == player:
                             valid_move = False
                             print(f"You cannot place a stone at {stone_pos}, as you have a locked stone at {coords}.")
                         # Check that the locked stone threshold has not been met.
@@ -97,10 +100,9 @@ def handle_command(cursor, command):
                     # Check if the stone is self-locked.
                     elif board[coords]["status"] == "self-locked":
                         # Check if the self-locked stone belongs to the player.
-                        player = board[coords]["player"]
-                        if player != "You":
+                        if board[coords]["player"] != player:
                             valid_move = False
-                            print(f"You cannot place a stone at {stone_pos}, as there is a self-locked stone at {coords} belonging to {player}.")
+                            print(f"You cannot place a stone at {stone_pos}, as there is a self-locked stone at {coords} belonging to {board[coords]['player']}.")
 
         # Check whether there is another stone in the local region.
         if not stone_in_region:
@@ -110,18 +112,18 @@ def handle_command(cursor, command):
         # If valid, place stone.
         if valid_move:
             board[stone_pos] = {
-                "player": "You",
+                "player": player,
                 "status": "locked",
             }
 
-    return cursor
+    return player, cursor
 
 if __name__ == "__main__":
     while True:
-        draw(board, cursor)
+        draw(board, player, cursor)
         print(cursor)
         try:
-            print(board[cursor])
+            print(f"Stone at cursor: {str(board[cursor])}")
         except KeyError:
             pass
-        cursor = handle_command(cursor, input("> ").strip())
+        player, cursor = handle_command(player, cursor, input(f"<{player}> ").strip())

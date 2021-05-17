@@ -2,7 +2,7 @@
 
 In Infinite Go, there is no score and players do not take turns. The game allows any number of players at any given time and all moves played are persistent, forever. Stones may be captured as usual, but no [ko](https://en.wikipedia.org/wiki/Rules_of_Go#Ko) rule is used. Suicide moves are allowed.
 
-The game begins with a single (unlocked) stone placed on the board by the non-player user `GOD`. This is the only move `GOD` will ever place.
+The game begins with a single locked stone placed on the board by the non-player user `GOD`. This is the only move `GOD` will ever place.
 
 ## Locks, self-locks, and valid moves
 
