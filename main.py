@@ -12,6 +12,93 @@ board = {
     }
 }
 
+def check_captures(board, stone_pos):
+    """
+    Checks if any captures have occurred (including suicide) and
+    returns the new board state.
+    The current implementation is rather slow as it does not
+    perform any liberty cacheing. There is an obvious significant
+    optimization available.
+    """
+    
+    def check_captured(board, stone_in_group):
+        """
+        Checks if a group associated with a particular stone has
+        run out of liberties. Returns the set of stones in that
+        group as well as a boolean indicating whether the group
+        has been captured. If the group has not been captured, that
+        means that a liberty has been found, and the returned group
+        set may not actually contain all stones within the group, as
+        short-circuiting is performed.
+        """
+        def new_adjacents(group, location):
+            """
+            Takes a group and a location within that group,
+            returning a set of all locations adjacent to the
+            provided location which do not lie within the group.
+            """
+            adjacents = {
+                (location[0] - 1, location[1]), # North
+                (location[0], location[1] + 1), # East
+                (location[0] + 1, location[1]), # South
+                (location[0], location[1] - 1), # West
+            }
+            return {adjacent for adjacent in adjacents if adjacent not in group}
+
+        player = board[stone_in_group]["player"]
+        # Checked stones.
+        group = {stone_in_group}
+        # Locations remaining to be checked.
+        unchecked = new_adjacents(group, stone_in_group)
+
+        while unchecked != set():
+            # Grab a random element of the unchecked set.
+            to_check = unchecked.pop()
+            if to_check not in board: # A liberty has been found!
+                return group, False
+            else: # The location contains a stone.
+                if board[to_check]["player"] == player: # The stone belongs to the group being checked.
+                    group.add(to_check)
+                    # `|` is the set union operator.
+                    unchecked = unchecked | new_adjacents(group, to_check)
+        
+        # No liberty was found.
+        return group, True
+
+    # First stage: Checking captures.
+    remaining_to_check = {
+        (stone_pos[0], stone_pos[1] - 1), # North
+        (stone_pos[0] + 1, stone_pos[1]), # East
+        (stone_pos[0], stone_pos[1] + 1), # South
+        (stone_pos[0] - 1, stone_pos[1]), # West
+    }
+
+    captured_something = False
+    while remaining_to_check != set():
+        print(remaining_to_check)
+        to_check = remaining_to_check.pop()
+        if to_check not in board: # We don't want to check empty locations.
+            continue
+        group, captured = check_captured(board, to_check)
+        if captured:
+            captured_something = True
+            for stone in group:
+                del board[stone]
+                try:
+                    # Remove the stone from those which remain to be checked,
+                    # so that it is not redundantly checked.
+                    remaining_to_check.remove(stone)
+                except KeyError: # Stone not in remaining_to_check.
+                    pass
+    # Second stage: Checking suicide.
+    if not captured_something:
+        group, captured = check_captured(board, stone_pos)
+        if captured:
+            for stone in group:
+                del board[stone]
+
+    return board
+
 def draw(board, player, cursor_coords):
     """
     Draw the local region.
@@ -47,7 +134,7 @@ def draw(board, player, cursor_coords):
         drawing += "-\n"
     print(drawing)
 
-def handle_command(player, cursor, command):
+def handle_command(board, player, cursor, command):
     # TODO: Yes, I know that this control flow is unbecoming. I
     # will make a separate module for this later.
     words = command.split()
@@ -124,8 +211,9 @@ def handle_command(player, cursor, command):
                 "player": player,
                 "status": "locked",
             }
+            board = check_captures(board, stone_pos)
 
-    return player, cursor
+    return board, player, cursor
 
 if __name__ == "__main__":
     while True:
@@ -135,4 +223,4 @@ if __name__ == "__main__":
             print(f"Stone at cursor: {str(board[cursor])}")
         except KeyError:
             pass
-        player, cursor = handle_command(player, cursor, input(f"<{player}> ").strip())
+        board, player, cursor = handle_command(board, player, cursor, input(f"<{player}> ").strip())
