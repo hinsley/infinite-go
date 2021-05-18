@@ -37,11 +37,11 @@ def draw(board, player, cursor_coords):
             if coords not in board:
                 drawing += "+"
             elif board[coords]["status"] == "unlocked":
-                drawing += "o"
+                drawing += board[coords]["player"][0].lower()
             elif board[coords]["status"] == "locked":
-                drawing += "x"
+                drawing += board[coords]["player"][0]
             elif board[coords]["status"] == "self-locked" and board[coords]["player"] != player:
-                drawing += "X"
+                drawing += "?"
             else:
                 drawing += "!"
         drawing += "-\n"
