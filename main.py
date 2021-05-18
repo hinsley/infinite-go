@@ -223,4 +223,7 @@ if __name__ == "__main__":
             print(f"Stone at cursor: {str(board[cursor])}")
         except KeyError:
             pass
-        board, player, cursor = handle_command(board, player, cursor, input(f"<{player}> ").strip())
+        try:
+            board, player, cursor = handle_command(board, player, cursor, input(f"<{player}> ").strip())
+        except:
+            print("Something went wrong with your command.")
