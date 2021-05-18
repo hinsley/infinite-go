@@ -15,7 +15,7 @@ In order for the move to be valid, the following criteria must be met:
 - The stone may not be placed where another stone already exists.
 - There must be at least one stone already within the local region.
 - There may not already be a locked stone belonging to the player within the local region.
-- There may be at most one locked stone in the local region.
+- Locked stones in the local region may belong to at most one player.
 - Any self-locked stones present in the local region must belong to the player.
 
  Self-locked stones are automatically unlocked after five minutes.

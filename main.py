@@ -184,9 +184,9 @@ def handle_command(board, player, cursor, command):
                         elif nearby_locked_stone is None:
                             nearby_locked_stone = coords
                         # Check that the locked stone threshold has not been met.
-                        else:
+                        elif board[nearby_locked_stone]["player"] != board[coords]["player"]:
                             valid_move = False
-                            print(f"You cannot place a stone at {stone_pos}, as there are multiple locked stones in the local region.")
+                            print(f"You cannot place a stone at {stone_pos}, as there are locked stones belonging to more than one player in the local region.")
                     # Check if the stone is self-locked.
                     elif board[coords]["status"] == "self-locked":
                         # Check if the self-locked stone belongs to the player.
@@ -225,5 +225,7 @@ if __name__ == "__main__":
             pass
         try:
             board, player, cursor = handle_command(board, player, cursor, input(f"<{player}> ").strip())
-        except:
-            print("Something went wrong with your command.")
+        except IndexError:
+            print("Your command elicited an IndexError.")
+        except ValueError:
+            print("Your command elicited a ValueError.")
