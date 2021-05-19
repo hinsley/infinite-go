@@ -26,7 +26,7 @@ with sqlite3.connect(db_file) as db:
             y                       INTEGER NOT NULL,
             player                  TEXT NOT NULL,
             placement_time          REAL NOT NULL,
-            last_status_change_time REAL,
+            last_status_change_time REAL NOT NULL,
             status                  TEXT NOT NULL
         );""")
 
@@ -77,3 +77,17 @@ def retrieve_region(x, y):
             (y BETWEEN {y-6} AND {y+6});""")
         
         return cur.fetchall()
+
+def update_status(stone_id: int, status: str):
+    """
+    Modifies the status of the specified stone.
+    """
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+
+        update_time = time()
+        cur.execute(f"""UPDATE stones SET
+            status = {repr(status)},
+            last_status_change_time = {update_time}
+        WHERE
+            id = {stone_id};""")
