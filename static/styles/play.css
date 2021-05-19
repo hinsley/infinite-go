@@ -31,3 +31,12 @@ div#goban div.hoshi {
     background-image: url('../images/goban_hoshi.svg');
     background-size: 100%;
 }
+
+div#goban div div.stone {
+    margin: 1px;
+    padding: 0;
+    width: 46px;
+    height: 46px;
+    border: solid 1px black;
+    border-radius: 100%;
+}

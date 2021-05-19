@@ -5,54 +5,30 @@ from time import time
 
 db_file = "data/database.db"
 
-# Create a `data/` directory if it does not exist.
-try:
-    os.makedirs("data")
-except OSError as e:
-    if e.errno != errno.EEXIST:
-        raise
-
-with sqlite3.connect(db_file) as db:
-    cur = db.cursor()
-
-    # Check whether the stones table exists.
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' and name='stones';")
-    
-    # If not, create it.
-    if cur.fetchall() == []:
-        cur.execute("""CREATE TABLE stones (
-            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
-            x                       INTEGER NOT NULL,
-            y                       INTEGER NOT NULL,
-            player                  TEXT NOT NULL,
-            placement_time          REAL NOT NULL,
-            last_status_change_time REAL NOT NULL,
-            status                  TEXT NOT NULL
-        );""")
-
 def place_stone(player, x, y):
     """
     Places a stone by the specified player at a particular location.
     Note: This does not check if another stone already exists there.
     """
-    placement_time = time()
-    cur.execute(f"""INSERT INTO stones (
-        x,
-        y,
-        player,
-        placement_time,
-        last_status_change_time,
-        status
-    ) VALUES (
-        {x},
-        {y},
-        {repr(player)},
-        {placement_time},
-        {placement_time},
-        'Locked'
-    );""")
-    
-    cur.commit()
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+
+        placement_time = time()
+        cur.execute(f"""INSERT INTO stones (
+            x,
+            y,
+            player,
+            placement_time,
+            last_status_change_time,
+            status
+        ) VALUES (
+            {x},
+            {y},
+            {repr(player)},
+            {placement_time},
+            {placement_time},
+            'Locked'
+        );""")
 
 def remove_stone(x, y):
     """
@@ -91,3 +67,31 @@ def update_status(stone_id: int, status: str):
             last_status_change_time = {update_time}
         WHERE
             id = {stone_id};""")
+
+# Create a `data/` directory if it does not exist.
+try:
+    os.makedirs("data")
+except OSError as e:
+    if e.errno != errno.EEXIST:
+        raise
+
+with sqlite3.connect(db_file) as db:
+    cur = db.cursor()
+
+    # Check whether the stones table exists.
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' and name='stones';")
+    
+    # If not, create it and place the first (unlocked) stone.
+    if cur.fetchall() == []:
+        cur.execute("""CREATE TABLE stones (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            x                       INTEGER NOT NULL,
+            y                       INTEGER NOT NULL,
+            player                  TEXT NOT NULL,
+            placement_time          REAL NOT NULL,
+            last_status_change_time REAL NOT NULL,
+            status                  TEXT NOT NULL
+        );""")
+
+        place_stone("GOD", 0, 0)
+        update_status(1, "Unlocked")
