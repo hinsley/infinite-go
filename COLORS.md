@@ -7,13 +7,13 @@ I am borrowing a subset of the color palette from [this page](http://godsnotwher
 ```
 #000000
 #FFFFFF
-#FFFF00
-#1CE6FF
-#FF34FF
-#FF4A46
 #008941
 #006FA6
 #A30059
+#FF4A46
+#FFFF00
+#1CE6FF
+#FF34FF
 #FFDBE5
 #7A4900
 #0000A6
