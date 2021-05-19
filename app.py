@@ -1,4 +1,4 @@
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, render_template, request
 
 import stone_db
 
@@ -40,4 +40,5 @@ def go():
     y = int(request.args.get("y"))
     stone_db.place_stone("Alice", x, y)
 
-    return redirect(url_for("play", x=x, y=y))
+    # Yeah, I know. This sucks. Bite me. I hate this bit of Flask.
+    return render_template("redirect.html", to=f"play?x={x}&y={y}")
