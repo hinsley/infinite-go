@@ -1,4 +1,4 @@
-# main.py
+# cli_demo.py
 
 LOCAL_REGION_SIZE = 13
 
