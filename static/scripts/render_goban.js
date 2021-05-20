@@ -13,7 +13,7 @@ function renderGoban(cursor) {
                 loc.setAttribute("class", "location");
             }
 
-            loc.setAttribute("onClick", "location = 'play?x=" + col + "&y=" + row + "';");
+            loc.setAttribute("onClick", "location = '/?x=" + col + "&y=" + row + "';");
     
             goban_div.appendChild(loc);
         }
