@@ -57,6 +57,7 @@ def process_login():
     """
     Processes the results of the login form.
     """
+    # TODO: SANITIZE EVERYTHING.
     # TODO: Check if the username even exists.
     user_id = user_db.get_user_id_from_username(request.form["username"])
     stored_password_hash = user_db.get_user_info(user_id, "password_hash")[0]
