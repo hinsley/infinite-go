@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Infinite Go &gt; Log In</title>
+    </head>
+    <body>
+        <h1>Infinite Go &gt; Log In</h1>
+        <form method="POST" action="{{ url_for('process_login') }}">
+            <label for="username">Username</label>
+            <input type="text" name="username">
+            <br>
+            <label for="password">Password</label>
+            <input type="password" name="password">
+            <br>
+            <input type="submit">
+        </form>
+    </body>
+</html>

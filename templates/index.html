@@ -2,10 +2,17 @@
 <html>
     <head>
         <title>Infinite Go</title>
-        <link rel= "stylesheet" type= "text/css" href="{{ url_for('static', filename='styles/play.css') }}">
+        <link rel= "stylesheet" type= "text/css" href="{{ url_for('static', filename='styles/main.css') }}">
     </head>
     <body>
         <h1>Infinite Go</h1>
+        <h3 style="font-style: italic;">
+        {% if username is none %}
+            <a href="{{ url_for('register') }}">Register</a> | <a href="{{ url_for('login') }}">Log In</a>
+        {% else %}
+            Logged in as {{ username }} | <a href="{{ url_for('logout') }}">Log Out</a>
+        {% endif %}
+        </h3>
         <hr>
         <div id="goban"></div>
 

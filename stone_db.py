@@ -5,7 +5,7 @@ from time import time
 
 db_file = "data/database.db"
 
-def place_stone(player, x, y):
+def place_stone(player: int, x: int, y: int):
     """
     Places a stone by the specified player at a particular location.
     Note: This does not check if another stone already exists there.
@@ -24,7 +24,7 @@ def place_stone(player, x, y):
         ) VALUES (
             {x},
             {y},
-            {repr(player)},
+            {player},
             {placement_time},
             {placement_time},
             'Locked'
@@ -87,11 +87,11 @@ with sqlite3.connect(db_file) as db:
             id                      INTEGER PRIMARY KEY AUTOINCREMENT,
             x                       INTEGER NOT NULL,
             y                       INTEGER NOT NULL,
-            player                  TEXT NOT NULL,
+            player                  INTEGER NOT NULL,
             placement_time          REAL NOT NULL,
             last_status_change_time REAL NOT NULL,
             status                  TEXT NOT NULL
         );""")
 
-        place_stone("SAI", 0, 0)
+        place_stone(1, 0, 0)
         update_status(1, "Unlocked")
