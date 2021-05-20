@@ -2,6 +2,16 @@
     font-family: serif;
 }
 
+body {
+    text-align: center;
+}
+
+div#goban-container {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
 div#goban {
     width: 650px;
     height: 650px;
@@ -20,8 +30,7 @@ div#goban div div.cursor-overlay {
     padding: 0;
     width: 50px;
     height: 50px;
-    z-index: 999999999999999;
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(0, 0, 0, 0.25);
 }
 
 div#goban div.location {
@@ -70,4 +79,8 @@ div#goban div div.stone div.selfLockedEmblem {
     border: solid 2px white;
     border-radius: 100%;
     background-color: crimson;
+}
+
+div#cursor-info {
+    margin-top: 8px;
 }

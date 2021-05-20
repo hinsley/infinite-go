@@ -28,7 +28,15 @@ def index():
     # Make the indices comprehensible to Javascript (it can't accept tuples for keys).
     stones = {" ".join(map(str, stone)): selected_stones[stone] for stone in selected_stones}
     
-    return render_template("index.html", username=(user_db.get_user_info(session["user"], "username")[0] if "user" in session else None), cursor=cursor, stones=stones)
+    stone_at_cursor = stone_db.get_stone(*cursor)
+    stone_at_cursor_player = user_db.get_user_info(stone_at_cursor["player"], "username")[0] if stone_at_cursor is not None else None
+
+    return render_template("index.html",
+                           username=(user_db.get_user_info(session["user"], "username")[0] if "user" in session else None),
+                           cursor=cursor,
+                           stones=stones,
+                           stone_at_cursor=stone_at_cursor,
+                           stone_at_cursor_player=stone_at_cursor_player)
 
 @app.route("/go", methods=["GET"])
 def go():
