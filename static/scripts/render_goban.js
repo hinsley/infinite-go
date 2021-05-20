@@ -40,6 +40,15 @@ function renderStones(stones) {
             "style",
             "background-color: " + color_code[players.indexOf(stones[key]["player"])]
         );
+        
+        var emblem = document.createElement("div");
+        if (stones[key]["status"] == "Locked") {
+            emblem.setAttribute("class", "lockedEmblem");
+        } else if (stones[key]["status"] == "Self-Locked") {
+            emblem.setAttribute("class", "selfLockedEmblem");
+        }
+        stone.appendChild(emblem);
+
         loc.appendChild(stone);
     });
 }
