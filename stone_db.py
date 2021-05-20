@@ -93,5 +93,5 @@ with sqlite3.connect(db_file) as db:
             status                  TEXT NOT NULL
         );""")
 
-        place_stone("GOD", 0, 0)
+        place_stone("SAI", 0, 0)
         update_status(1, "Unlocked")
