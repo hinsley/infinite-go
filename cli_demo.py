@@ -75,7 +75,6 @@ def check_captures(board, stone_pos):
 
     captured_something = False
     while remaining_to_check != set():
-        print(remaining_to_check)
         to_check = remaining_to_check.pop()
         if to_check not in board: # We don't want to check empty locations.
             continue

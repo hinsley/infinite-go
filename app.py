@@ -1,7 +1,11 @@
+from captures import perform_captures
 from flask import Flask, render_template, request, session
 
 import user_db
 import stone_db
+
+import move_validation
+import captures
 
 app = Flask(__name__)
 app.secret_key = input("SECRET KEY: ")
@@ -21,15 +25,9 @@ def index():
         cursor = [0, 0]
 
     selected_stones = stone_db.retrieve_region(*cursor)
-    stones = {}
-    for stone in selected_stones:
-        stones[" ".join([str(stone[1]), str(stone[2])])] = {
-            "player":  stone[3],
-            "placed":  stone[4],
-            "updated": stone[5],
-            "status":  stone[6],
-        }
-
+    # Make the indices comprehensible to Javascript (it can't accept tuples for keys).
+    stones = {" ".join(map(str, stone)): selected_stones[stone] for stone in selected_stones}
+    
     return render_template("index.html", username=(user_db.get_user_info(session["user"], "username")[0] if "user" in session else None), cursor=cursor, stones=stones)
 
 @app.route("/go", methods=["GET"])
@@ -40,7 +38,15 @@ def go():
     """
     x = int(request.args.get("x"))
     y = int(request.args.get("y"))
-    stone_db.place_stone(session["user"], x, y)
+
+    if move_validation.check_valid_move(session["user"], (x, y)):
+        local_stones = stone_db.retrieve_region(x, y)
+        for stone_pos in local_stones:
+            move_validation.evolve_status(stone_pos)
+        stone_db.place_stone(session["user"], x, y)
+        captures.perform_captures((x, y))
+    else:
+        pass # TODO: Add error messages.
 
     # TODO: Replace with `redirect` once that works.
     return render_template("redirect.html", to=f"/?x={x}&y={y}")

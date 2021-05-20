@@ -5,6 +5,32 @@ from time import time
 
 db_file = "data/database.db"
 
+def get_stone(x: int, y: int):
+    """
+    Retrieves the stone at the specified location. If one does not exist,
+    returns None.
+    """
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+
+        try:
+            cur.execute(f"""SELECT * FROM stones WHERE x={x} AND y={y};""")
+        except:
+            return None
+        
+        entry = cur.fetchone()
+
+        if entry is None:
+            return None
+        
+        return {
+            "id":                      entry[0],
+            "player":                  entry[3],
+            "placement_time":          entry[4],
+            "last_status_change_time": entry[5],
+            "status":                  entry[6],
+        }
+
 def place_stone(player: int, x: int, y: int):
     """
     Places a stone by the specified player at a particular location.
@@ -52,7 +78,19 @@ def retrieve_region(x, y):
             (x BETWEEN {x-6} AND {x+6}) AND
             (y BETWEEN {y-6} AND {y+6});""")
         
-        return cur.fetchall()
+        stone_entries = cur.fetchall()
+
+        stones = {}
+
+        for entry in stone_entries:
+            stones[(entry[1], entry[2])] = {
+                "player":                  entry[3],
+                "placement_time":          entry[4],
+                "last_status_change_time": entry[5],
+                "status":                  entry[6],
+            }
+
+        return stones
 
 def update_status(stone_id: int, status: str):
     """
