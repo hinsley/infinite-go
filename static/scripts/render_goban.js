@@ -14,7 +14,13 @@ function renderGoban(cursor) {
             }
 
             loc.setAttribute("onClick", "location = '/?x=" + col + "&y=" + row + "';");
-    
+
+            if (row == cursor[1] && col == cursor[0]) {
+                var overlay = document.createElement("div");
+                overlay.setAttribute("class", "cursor-overlay");
+                loc.appendChild(overlay);
+            }
+
             goban_div.appendChild(loc);
         }
     }
