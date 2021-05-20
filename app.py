@@ -40,7 +40,7 @@ def go():
     """
     x = int(request.args.get("x"))
     y = int(request.args.get("y"))
-    stone_db.place_stone("Alice", x, y)
+    stone_db.place_stone(session["user"], x, y)
 
     # TODO: Replace with `redirect` once that works.
     return render_template("redirect.html", to=f"/?x={x}&y={y}")

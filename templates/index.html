@@ -16,11 +16,15 @@
         <hr>
         <div id="goban"></div>
 
+        {% if username is not none %}
+            <button onClick="location = 'go?x={{ cursor[0] }}&y={{ cursor[1] }}';">Place stone</button>
+        {% endif %}
+
         <script src="{{ url_for('static', filename='scripts/color_code.js') }}"></script>
         <script src="{{ url_for('static', filename='scripts/render_goban.js') }}"></script>
         <script>
-            renderGoban({{cursor}});
-            renderStones({{stones|tojson}});
+            renderGoban({{ cursor }});
+            renderStones({{ stones | tojson }});
         </script>
     </body>
 </html>
