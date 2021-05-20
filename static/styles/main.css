@@ -58,5 +58,5 @@ div#goban div div.stone div.selfLockedEmblem {
     height: 12px;
     border: solid 2px white;
     border-radius: 100%;
-    background-color: maroon;
+    background-color: red;
 }
