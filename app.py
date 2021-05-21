@@ -28,6 +28,7 @@ def index():
         cursor = [0, 0]
 
     selected_stones = stone_db.retrieve_region(*cursor)
+    print(selected_stones)
     # We need to pass the player names for each stone to the client as well.
     for coords in selected_stones:
         player_id = selected_stones[coords]["player"]
@@ -74,9 +75,20 @@ def process_login():
     """
     Processes the results of the login form.
     """
-    # TODO: SANITIZE EVERYTHING.
+    
+    # Validate credentials.
+    if not user_db.validate_username(request.form["username"].lower()):
+        # Invalid username.
+        # TODO: Add error message.
+        return render_template("redirect.html", to="/login")
+
+    if not user_db.validate_password(request.form["password"]):
+        # Invalid password.
+        # TODO: Add error message.
+        return render_template("redirect.html", to="/login")
+
     # TODO: Check if the username even exists.
-    user_id = user_db.get_user_id_from_username(request.form["username"])
+    user_id = user_db.get_user_id_from_username(request.form["username"].lower())
     stored_password_hash = user_db.get_user_info(user_id, "password_hash")[0]
 
     # Check that the password is correct.
@@ -87,7 +99,7 @@ def process_login():
     else:
         # TODO: Add an invalid password error message.
         # TODO: Replace with `redirect` once that works.
-        return render_template("redirect.html", to="login")
+        return render_template("redirect.html", to="/login")
 
 @app.route("/logout")
 def logout():
@@ -112,11 +124,27 @@ def process_registration():
     Processes the results of the registration form, creating a new
     user in the database.
     """
-    # TODO: Add form validation/sanitation.
-    user_db.create_user(request.form["username"], request.form["email"], request.form["password"])
+    # Perform validation.
+    if not user_db.validate_username(request.form["username"].lower()):
+        # Invalid username.
+        # TODO: Add error message.
+        return render_template("redirect.html", to="/register")
+    
+    if not user_db.validate_email(request.form["email"]):
+        # Invalid email address.
+        # TODO: Add error message.
+        return render_template("redirect.html", to="/register")
+
+    if not user_db.validate_password(request.form["password"]):
+        # Invalid password.
+        # TODO: Add error message.
+        return render_template("redirect.html", to="/register")
+    
+    # TODO: Check whether the user already exists.
+
+    user_db.create_user(request.form["username"].lower(), request.form["email"], request.form["password"])
 
     # Log in as the newly-registered user.
-    user_db.login(user_db.get_user_id_from_username(request.form["username"]))
+    user_db.login(user_db.get_user_id_from_username(request.form["username"].lower()))
 
-    # TODO: Replace with `redirect` once that works.
-    return render_template("redirect.html", to=f"/")
+    return render_template("redirect.html", to="/")
