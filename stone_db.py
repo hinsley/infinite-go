@@ -113,7 +113,7 @@ def unlock_stale_self_locks():
             last_status_change_time = {unlock_time}
         WHERE
             status = 'Self-Locked' AND
-            last_status_change_time <= unlock_time - {self_lock_timeout};""")
+            last_status_change_time <= {unlock_time} - {self_lock_timeout};""")
 
 def update_status(stone_id: int, status: str):
     """
