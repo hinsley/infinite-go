@@ -84,3 +84,27 @@ div#goban div div.stone div.selfLockedEmblem {
 div#cursor-info {
     margin-top: 8px;
 }
+
+div#color-legend {
+    margin-top: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: left;
+}
+
+div#color-legend div.legend-entry {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    width: 650px;
+}
+
+div#color-legend div.color-icon {
+    margin: 4px;
+    width: 16px;
+    height: 16px;
+    border: solid 1px black;
+    border-radius: 100%;
+}

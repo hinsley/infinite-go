@@ -30,13 +30,37 @@ function renderStones(stones) {
     // Decide a player coloring for the stones.
     var players = [];
     Object.values(stones).forEach((value) => {
-        if (!players.includes(value["player"])) {
-            players.push(value["player"]);
+        if (!players.includes(value["player_name"])) {
+            players.push(value["player_name"]);
         }
     });
+    
+    // Sort the players array by user ID.
+    players.sort();
+
+    // Create color legend entries.
+    for (var i = 0; i < players.length; i++) {
+        var legendEntry = document.createElement("div");
+        legendEntry.setAttribute("class", "legend-entry")
+
+        var colorIcon = document.createElement("div");
+        colorIcon.setAttribute("class", "color-icon");
+        colorIcon.setAttribute(
+            "style",
+            "background-color: " + color_code[i] + ";"
+        );
+
+        legendEntry.appendChild(colorIcon);
+
+        // Add the player name to the legend entry.
+        legendEntry.append(" " + players[i]);
+
+        document.getElementById("color-legend").appendChild(legendEntry);
+    }
 
     // Create a DOM element for each stone.
     Object.keys(stones).forEach((key) => {
+        // Create a DOM element for the stone on the board.
         var coords = key.split(" ");
         var id = "x" + coords[0] + "y" + coords[1];
         var loc = document.getElementById(id);
@@ -44,9 +68,10 @@ function renderStones(stones) {
         stone.setAttribute("class", "stone");
         stone.setAttribute(
             "style",
-            "background-color: " + color_code[players.indexOf(stones[key]["player"])]
+            "background-color: " + color_code[players.indexOf(stones[key]["player_name"])] + ";"
         );
         
+        // Create an emblem indicating the locking status of the stone.
         var emblem = document.createElement("div");
         if (stones[key]["status"] == "Locked") {
             emblem.setAttribute("class", "lockedEmblem");
