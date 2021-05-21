@@ -2,11 +2,15 @@ from flask import session
 
 import errno
 import hashlib
+import json
 import os
 import sqlite3
 from time import time
 
 from typing import List, Optional
+
+with open("config.json") as f:
+    cfg = json.load(f)
 
 db_file = "data/database.db"
 
@@ -67,7 +71,8 @@ def get_user_id_from_username(username: str) -> int:
         return cur.fetchone()[0]
 
 def hash_password(password: str) -> str:
-    return hashlib.sha256(bytes(password, "utf-8")).hexdigest()
+    salted_password = password + cfg["password salt"]
+    return hashlib.sha256(bytes(salted_password, "utf-8")).hexdigest()
 
 # Create a `data/` directory if it does not exist.
 try:

@@ -1,5 +1,5 @@
-from captures import perform_captures
 from flask import Flask, render_template, request, session
+import json
 
 import user_db
 import stone_db
@@ -7,8 +7,11 @@ import stone_db
 import move_validation
 import captures
 
+with open("config.json") as f:
+    cfg = json.load(f)
+
 app = Flask(__name__)
-app.secret_key = input("SECRET KEY: ")
+app.secret_key = cfg["secret key"]
 
 @app.route("/", methods=["GET"])
 def index():
