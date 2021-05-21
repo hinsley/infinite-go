@@ -17,4 +17,8 @@ In order for the move to be valid, the following criteria must be met:
 - There may not already be a locked stone belonging to the player within the local region.
 - Any self-locked stones present in the local region must belong to the player.
 
- Self-locked stones are automatically unlocked after one day.
+ Self-locked stones are automatically unlocked after one hour.
+
+ ---
+
+ ***TL;DR: When you place a stone, you can't place another one nearby until someone else answers your move. After someone answers your move, you have one hour to respond before other players can place stones nearby.***
