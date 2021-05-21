@@ -17,17 +17,10 @@ def check_valid_move(player: int, cursor: Tuple[int, int]) -> bool:
         # There must be stones nearby.
         return False
     
-    locked_stones_owner = None
     for stone in local_stones.values():
-        if stone["status"] == "Locked":
-            if player == stone["player"]:
-                # Locked stones in the local region must not belong to the player.
-                return False
-            if locked_stones_owner is None:
-                locked_stones_owner = stone["player"]
-            elif locked_stones_owner != stone["player"]:
-                # Locked stones in the local region may belong to at most one player.
-                return False
+        if stone["status"] == "Locked" and player == stone["player"]:
+            # Locked stones in the local region must not belong to the player.
+            return False
         elif stone["status"] == "Self-Locked" and player != stone["player"]:
             # Any self-locked stones present in the local region must belong to the player.
             return False
