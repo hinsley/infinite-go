@@ -25,7 +25,7 @@
         {% if username is not none %}
             <br>
         
-            <button onClick="location = 'go?x={{ cursor[0] }}&y={{ cursor[1] }}';">Place stone</button>
+            <button id="placeStone" onClick="location = 'go?x={{ cursor[0] }}&y={{ cursor[1] }}';">Place stone</button>
         {% endif %}
         <div id="color-legend"></div>
 
@@ -33,7 +33,7 @@
         <script src="{{ url_for('static', filename='scripts/render_goban.js') }}"></script>
         <script>
             renderGoban({{ cursor }});
-            renderStones({{ stones | tojson }});
+            renderStones({{ stones | tojson }}, {{ cursor }}, {% if username is not none %} "{{ username }}" {% else %} null {% endif %});
         </script>
     </body>
 </html>

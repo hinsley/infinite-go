@@ -26,12 +26,12 @@ function renderGoban(cursor) {
     }
 }
 
-function renderStones(stones) {
+function renderStones(stones, cursor, player) {
     // Decide a player coloring for the stones.
     var players = [];
-    Object.values(stones).forEach((value) => {
-        if (!players.includes(value["player_name"])) {
-            players.push(value["player_name"]);
+    Object.values(stones).forEach((stone) => {
+        if (!players.includes(stone["player_name"])) {
+            players.push(stone["player_name"]);
         }
     });
     
@@ -82,4 +82,20 @@ function renderStones(stones) {
 
         loc.appendChild(stone);
     });
+
+    // Determine whether the cursor is pointing to a valid move.
+    var validMove = Object.keys(stones).length > 0; // There must be a stone nearby.
+    Object.keys(stones).forEach((coords) => {
+        if (
+            cursor[0] + " " + cursor[1] == coords || // Can't play where a stone already exists.
+            stones[coords]["status"] == "Locked" && stones[coords]["player_name"] == player || // Can't play near one's own locked stones.
+            stones[coords]["status"] == "Self-Locked" && stones[coords]["player_name"] != player // Can't play near others' self-locked stones.
+        ) {
+            validMove = false;
+        }
+    });
+    if (!validMove) {
+        // Disable the "Place stone" button.
+        document.getElementById("placeStone").setAttribute("disabled", true);
+    }
 }
