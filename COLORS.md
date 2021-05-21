@@ -1,4 +1,4 @@
-# Stone Coloring
+# Stone coloring
 
 I apologize to those of you who are colorblind. If you have suggestions for distinctly representing 169 different classes of visual items in a single viewport without using color coding, please open an issue.
 
