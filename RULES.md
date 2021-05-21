@@ -17,4 +17,4 @@ In order for the move to be valid, the following criteria must be met:
 - There may not already be a locked stone belonging to the player within the local region.
 - Any self-locked stones present in the local region must belong to the player.
 
- Self-locked stones are automatically unlocked after five minutes.
+ Self-locked stones are automatically unlocked after one day.
