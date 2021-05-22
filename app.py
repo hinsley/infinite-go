@@ -45,6 +45,7 @@ def index():
 
     return render_template("index.html",
                            username=(user_db.get_user_info(session["user"], "username")[0] if "user" in session else None),
+                           score=f"{stone_db.player_score(session['user']):,}" if "user" in session else None,
                            cursor=cursor,
                            stones=stones)
 
