@@ -26,20 +26,19 @@ function renderGoban(cursor) {
     }
 }
 
-function renderStones(stones, cursor, player) {
+function renderStones(stones, cursor, scores) {
     // Decide a player coloring for the stones.
-    var players = [];
+    var player_scores = [];
+    var player_names = [];
     Object.values(stones).forEach((stone) => {
-        if (!players.includes(stone["player_name"])) {
-            players.push(stone["player_name"]);
+        if (!player_names.includes(stone["player_name"])) {
+            player_scores.push(stone["player_score"]);
+            player_names.push(stone["player_name"]);
         }
     });
-    
-    // Sort the players array by user ID.
-    players.sort();
 
     // Create color legend entries.
-    for (var i = 0; i < players.length; i++) {
+    for (var i = 0; i < player_names.length; i++) {
         var legendEntry = document.createElement("div");
         legendEntry.setAttribute("class", "legend-entry")
 
@@ -53,7 +52,7 @@ function renderStones(stones, cursor, player) {
         legendEntry.appendChild(colorIcon);
 
         // Add the player name to the legend entry.
-        legendEntry.append(" " + players[i]);
+        legendEntry.append(" " + player_names[i] + " (" + Number(player_scores[i]).toLocaleString() + ")");
 
         document.getElementById("color-legend").appendChild(legendEntry);
     }
@@ -68,7 +67,7 @@ function renderStones(stones, cursor, player) {
         stone.setAttribute("class", "stone");
         stone.setAttribute(
             "style",
-            "background-color: " + color_code[players.indexOf(stones[key]["player_name"])] + ";"
+            "background-color: " + color_code[player_names.indexOf(stones[key]["player_name"])] + ";"
         );
         
         // Create an emblem indicating the locking status of the stone.

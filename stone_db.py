@@ -3,6 +3,8 @@ import os
 import sqlite3
 from time import time
 
+from typing import Optional
+
 db_file = "data/database.db"
 
 self_lock_timeout = 3600 # Seconds.
@@ -60,6 +62,17 @@ def place_stone(player: int, x: int, y: int):
             'Locked'
         );""")
 
+def player_score(user_id: int) -> Optional[int]:
+    """
+    Counts how many stones belong to the specified player.
+    """
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+
+        cur.execute("SELECT COUNT(id) FROM stones WHERE player = ?;", [user_id])
+
+        return cur.fetchone()[0]
+
 def remove_stone(x, y):
     """
     Removes any stone at the specified location.
@@ -68,7 +81,7 @@ def remove_stone(x, y):
     with sqlite3.connect(db_file) as db:
         cur = db.cursor()
 
-        cur.execute(f"""DELETE FROM stones WHERE x = {x} AND y = {y};""")
+        cur.execute("DELETE FROM stones WHERE x = ? AND y = ?;", [x, y])
 
 def retrieve_region(x, y):
     """

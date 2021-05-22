@@ -28,11 +28,17 @@ def index():
         cursor = [0, 0]
 
     selected_stones = stone_db.retrieve_region(*cursor)
-    print(selected_stones)
-    # We need to pass the player names for each stone to the client as well.
+    # We need to pass the player names and scores for each stone to the client as well.
+    # CODESMELL
+    player_names = {}
+    player_scores = {}
     for coords in selected_stones:
-        player_id = selected_stones[coords]["player"]
-        selected_stones[coords]["player_name"] = user_db.get_user_info(player_id, "username")[0]
+        # Perform cacheing so we don't have to access the database multiple times per player.
+        if selected_stones[coords]["player"] not in player_names:
+            player_names[selected_stones[coords]["player"]] = user_db.get_user_info(selected_stones[coords]["player"], "username")[0]
+            player_scores[selected_stones[coords]["player"]] = stone_db.player_score(selected_stones[coords]["player"])
+        selected_stones[coords]["player_name"] = player_names[selected_stones[coords]["player"]]
+        selected_stones[coords]["player_score"] = player_scores[selected_stones[coords]["player"]]
     
     # Make the indices comprehensible to Javascript (it can't accept tuples for keys).
     stones = {" ".join(map(str, stone)): selected_stones[stone] for stone in selected_stones}
