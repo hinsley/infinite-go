@@ -40,7 +40,7 @@
         <script src="{{ url_for('static', filename='scripts/render_goban.js') }}"></script>
         <script>
             renderGoban({{ cursor }});
-            renderStones({{ stones | tojson }}, {{ cursor }});
+            renderStones({{ stones | tojson }}, {{ cursor }}, {% if username is not none %} "{{ username }}" {% else %} null {% endif %});
         </script>
     </body>
 </html>

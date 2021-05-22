@@ -26,7 +26,7 @@ function renderGoban(cursor) {
     }
 }
 
-function renderStones(stones, cursor, scores) {
+function renderStones(stones, cursor, player) {
     // Decide a player coloring for the stones.
     var player_scores = [];
     var player_names = [];
