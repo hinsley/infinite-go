@@ -59,6 +59,7 @@ div#goban div div.stone {
     height: 46px;
     border: solid 1px black;
     border-radius: 100%;
+    background-image: url('../images/stone_overlay.svg');
 }
 
 div#goban div div.stone div.lockedEmblem {
