@@ -13,6 +13,7 @@
         {% else %}
             Logged in as {{ username }} | <a href="{{ url_for('logout') }}">Log Out</a>
         {% endif %}
+
         </h3>
         <div id="goban-container">
             <div id="goban"></div>
@@ -28,6 +29,10 @@
             <button id="placeStone" onClick="location = 'go?x={{ cursor[0] }}&y={{ cursor[1] }}';">Place stone</button>
         {% endif %}
         <div id="color-legend"></div>
+
+        <h4>
+            <a href="https://github.com/hinsley/infinite-go">GitHub</a> | <a href="https://discord.gg/dzhBtPZbEz">Discord</a>
+        </h4>
 
         <script src="{{ url_for('static', filename='scripts/color_code.js') }}"></script>
         <script src="{{ url_for('static', filename='scripts/render_goban.js') }}"></script>
