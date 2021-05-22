@@ -37,6 +37,11 @@ function renderStones(stones, cursor, scores) {
         }
     });
 
+    // Assign colors by relative player scores.
+    player_names = refSort(player_names, player_scores).reverse();
+    player_scores.sort().reverse();
+    player_scores.sort().reverse();
+
     // Create color legend entries.
     for (var i = 0; i < player_names.length; i++) {
         var legendEntry = document.createElement("div");
