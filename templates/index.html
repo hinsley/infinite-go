@@ -25,7 +25,7 @@
             X: {{ cursor[0] }}, Y: {{ cursor[1] }}
         </div>
         
-        {% if "%s %s" % (cursor[0], cursor[1]) in stones and stones["%s %s" % (cursor[0], cursor[1])]["status"] == "Self-Locked" %}
+        {% if "%s %s" % (cursor[0], cursor[1]) in stones and stones["%s %s" % (cursor[0], cursor[1])]["status"] == "Pending" %}
         <div id="pending-countdown"></div>
         <script src="{{ url_for('static', filename='scripts/pending_countdown.js') }}"></script>
         <script>initiatePendingCountdown({{ stones["%s %s" % (cursor[0], cursor[1])]["last_status_change_time"] }});</script>

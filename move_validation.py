@@ -21,8 +21,8 @@ def check_valid_move(player: int, cursor: Tuple[int, int]) -> bool:
         if stone["status"] == "Locked" and player == stone["player"]:
             # Locked stones in the local region must not belong to the player.
             return False
-        elif stone["status"] == "Self-Locked" and player != stone["player"]:
-            # Any self-locked stones present in the local region must belong to the player.
+        elif stone["status"] == "Pending" and player != stone["player"]:
+            # Any pending stones present in the local region must belong to the player.
             return False
 
     return True
@@ -40,7 +40,7 @@ def evolve_status(stone_pos):
     """
     stone = stone_db.get_stone(*stone_pos)
     stone_db.update_status(stone["id"], {
-        "Locked": "Self-Locked",
-        "Self-Locked": "Unlocked",
+        "Locked": "Pending",
+        "Pending": "Unlocked",
         "Unlocked": "Unlocked",
     }[stone["status"]])

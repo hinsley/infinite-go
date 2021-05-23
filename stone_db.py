@@ -51,7 +51,7 @@ def next_pending_location(user_id: int, current_coords: Optional[Tuple[int, int]
         current_stone_pending_since = 0 # Will always be older than any stone.
         if current_coords is not None:
             current_stone = get_stone(*current_coords)
-            if current_stone is not None and current_stone["player"] == user_id and current_stone["status"] == "Self-Locked":
+            if current_stone is not None and current_stone["player"] == user_id and current_stone["status"] == "Pending":
                 # The current stone belongs to the player and is pending.
                 current_stone_pending_since = current_stone["last_status_change_time"]
         
@@ -61,7 +61,7 @@ def next_pending_location(user_id: int, current_coords: Optional[Tuple[int, int]
             stones
         WHERE
             player = ? AND
-            status = 'Self-Locked' AND
+            status = 'Pending' AND
             last_status_change_time > ?
         ORDER BY
             last_status_change_time ASC;"""
@@ -160,7 +160,7 @@ def retrieve_region(x, y):
 
 def unlock_stale_self_locks():
     """
-    Unlocks every self-locked stone which has timed out.
+    Unlocks every pending stone which has timed out.
     This function should be called beforehand any time
     information about any stone is retrieved.
     """
@@ -172,7 +172,7 @@ def unlock_stale_self_locks():
             status = 'Unlocked',
             last_status_change_time = ?
         WHERE
-            status = 'Self-Locked' AND
+            status = 'Pending' AND
             last_status_change_time <= ? - ?;""",
         [unlock_time, unlock_time, self_lock_timeout])
 

@@ -78,7 +78,7 @@ function renderStones(stones, cursor, player) {
         var emblem = document.createElement("div");
         if (stones[key]["status"] == "Locked") {
             emblem.setAttribute("class", "lockedEmblem");
-        } else if (stones[key]["status"] == "Self-Locked") {
+        } else if (stones[key]["status"] == "Pending") {
             emblem.setAttribute("class", "selfLockedEmblem");
         }
         stone.appendChild(emblem);
@@ -92,7 +92,7 @@ function renderStones(stones, cursor, player) {
         if (
             cursor[0] + " " + cursor[1] == coords || // Can't play where a stone already exists.
             stones[coords]["status"] == "Locked" && stones[coords]["player_name"] == player || // Can't play near one's own locked stones.
-            stones[coords]["status"] == "Self-Locked" && stones[coords]["player_name"] != player // Can't play near others' self-locked stones.
+            stones[coords]["status"] == "Pending" && stones[coords]["player_name"] != player // Can't play near others' pending stones.
         ) {
             validMove = false;
         }
