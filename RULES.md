@@ -4,7 +4,7 @@ In Infinite Go, there is no score and players do not take turns. The game allows
 
 The game begins with a single unlocked stone placed on the board by the non-player user `SAI`. This is the only move `SAI` will ever place.
 
-## Locks, self-locks, and valid moves
+## Locks, pending stones, and valid moves
 
 Every time a player places a stone, a local 13x13 region centered at that stone is considered.
 

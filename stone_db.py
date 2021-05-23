@@ -7,14 +7,14 @@ from typing import Optional, Tuple
 
 db_file = "data/database.db"
 
-self_lock_timeout = 3600 # Seconds.
+pending_timeout = 3600 # Seconds.
 
 def get_stone(x: int, y: int):
     """
     Retrieves the stone at the specified location. If one does not exist,
     returns None.
     """
-    unlock_stale_self_locks()
+    unlock_stale_pending()
 
     with sqlite3.connect(db_file) as db:
         cur = db.cursor()
@@ -157,7 +157,7 @@ def retrieve_region(x, y):
     Retrieves all stones in the 13x13 local region centered at the provided
     coordinates.
     """
-    unlock_stale_self_locks()
+    unlock_stale_pending()
 
     with sqlite3.connect(db_file) as db:
         cur = db.cursor()
@@ -180,7 +180,7 @@ def retrieve_region(x, y):
 
         return stones
 
-def unlock_stale_self_locks():
+def unlock_stale_pending():
     """
     Unlocks every pending stone which has timed out.
     This function should be called beforehand any time
@@ -196,7 +196,7 @@ def unlock_stale_self_locks():
         WHERE
             status = 'Pending' AND
             last_status_change_time <= ? - ?;""",
-        [unlock_time, unlock_time, self_lock_timeout])
+        [unlock_time, unlock_time, pending_timeout])
 
 def update_status(stone_id: int, status: str):
     """

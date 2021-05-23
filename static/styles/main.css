@@ -72,7 +72,7 @@ div#goban div div.stone div.lockedEmblem {
     background-color: black;
 }
 
-div#goban div div.stone div.selfLockedEmblem {
+div#goban div div.stone div.pendingEmblem {
     margin: 15px;
     padding: 0;
     width: 12px;

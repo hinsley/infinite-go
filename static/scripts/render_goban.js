@@ -79,7 +79,7 @@ function renderStones(stones, cursor, player) {
         if (stones[key]["status"] == "Locked") {
             emblem.setAttribute("class", "lockedEmblem");
         } else if (stones[key]["status"] == "Pending") {
-            emblem.setAttribute("class", "selfLockedEmblem");
+            emblem.setAttribute("class", "pendingEmblem");
         }
         stone.appendChild(emblem);
 
