@@ -3,7 +3,7 @@ import os
 import sqlite3
 from time import time
 
-from typing import Optional
+from typing import Optional, Tuple
 
 db_file = "data/database.db"
 
@@ -36,6 +36,53 @@ def get_stone(x: int, y: int):
             "last_status_change_time": entry[5],
             "status":                  entry[6],
         }
+
+def next_pending_location(user_id: int, current_coords: Optional[Tuple[int, int]] = None) -> Optional[Tuple[int, int]]:
+    """
+    Retrieves the next pending stone's coordinates. If current_coords is not specified (or is not pending),
+    retrieves the longest-pending stone's coordinates. The order for determining which stone is "next" is
+    defined by how long stones have been pending -- successive applications of this function will retrieve
+    successively younger pending stones. If there is no younger pending stone, the coordinates of the
+    oldest pending stone are returned. If there are no pending stones at all, None is returned.
+    """
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+
+        current_stone_pending_since = 0 # Will always be older than any stone.
+        if current_coords is not None:
+            current_stone = get_stone(*current_coords)
+            if current_stone is not None and current_stone["player"] == user_id and current_stone["status"] == "Self-Locked":
+                # The current stone belongs to the player and is pending.
+                current_stone_pending_since = current_stone["last_status_change_time"]
+        
+        query = """SELECT
+            x, y
+        FROM
+            stones
+        WHERE
+            player = ? AND
+            status = 'Self-Locked' AND
+            last_status_change_time > ?
+        ORDER BY
+            last_status_change_time ASC;"""
+        
+        cur.execute(query, [user_id, current_stone_pending_since])
+
+        next_pending_coords = cur.fetchone()
+
+        # A younger pending stone exists.
+        if next_pending_coords is not None:
+            return next_pending_coords
+        
+        # Otherwise, a younger pending stone does not exist.
+        
+        # Retrieve the oldest stone.
+        cur.execute(query, [user_id, 0])
+
+        next_pending_coords = cur.fetchone()
+
+        # Return either the coords of the oldest pending stone, or None if no such stone exists.
+        return next_pending_coords
 
 def place_stone(player: int, x: int, y: int):
     """
@@ -121,12 +168,13 @@ def unlock_stale_self_locks():
         cur = db.cursor()
 
         unlock_time = time()
-        cur.execute(f"""UPDATE stones SET
+        cur.execute("""UPDATE stones SET
             status = 'Unlocked',
-            last_status_change_time = {unlock_time}
+            last_status_change_time = ?
         WHERE
             status = 'Self-Locked' AND
-            last_status_change_time <= {unlock_time} - {self_lock_timeout};""")
+            last_status_change_time <= ? - ?;""",
+        [unlock_time, unlock_time, self_lock_timeout])
 
 def update_status(stone_id: int, status: str):
     """
@@ -136,11 +184,12 @@ def update_status(stone_id: int, status: str):
         cur = db.cursor()
 
         update_time = time()
-        cur.execute(f"""UPDATE stones SET
-            status = {repr(status)},
-            last_status_change_time = {update_time}
+        cur.execute("""UPDATE stones SET
+            status = ?,
+            last_status_change_time = ?
         WHERE
-            id = {stone_id};""")
+            id = ?;""",
+        [status, update_time, stone_id])
 
 # Create a `data/` directory if it does not exist.
 try:

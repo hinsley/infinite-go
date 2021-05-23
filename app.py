@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session
+from flask import Flask, render_template, request, session, url_for
 import json
 
 import user_db
@@ -49,6 +49,19 @@ def index():
                            cursor=cursor,
                            stones=stones)
 
+@app.route("/cycle-pending", methods=["GET"])
+def cycle_pending():
+    """
+    Jump to your next pending stone. If there isn't one, just sends you back to the same location you were at.
+    """
+    current_coords = (int(request.args.get("current_x")), int(request.args.get("current_y")))
+    destination_coords = stone_db.next_pending_location(session["user"], current_coords)
+
+    if destination_coords is None: # No pending stones were found.
+        destination_coords = current_coords
+    
+    return render_template("redirect.html", to=url_for("index", x=destination_coords[0], y=destination_coords[1]))
+
 @app.route("/go", methods=["GET"])
 def go():
     """
@@ -68,7 +81,7 @@ def go():
         pass # TODO: Add error messages.
 
     # TODO: Replace with `redirect` once that works.
-    return render_template("redirect.html", to=f"/?x={x}&y={y}")
+    return render_template("redirect.html", to=url_for("index", x=x, y=y))
 
 @app.route("/login")
 def login():
@@ -87,12 +100,12 @@ def process_login():
     if not user_db.validate_username(request.form["username"].lower()):
         # Invalid username.
         # TODO: Add error message.
-        return render_template("redirect.html", to="/login")
+        return render_template("redirect.html", to=url_for("login"))
 
     if not user_db.validate_password(request.form["password"]):
         # Invalid password.
         # TODO: Add error message.
-        return render_template("redirect.html", to="/login")
+        return render_template("redirect.html", to=url_for("login"))
 
     # TODO: Check if the username even exists.
     user_id = user_db.get_user_id_from_username(request.form["username"].lower())
@@ -102,11 +115,11 @@ def process_login():
     if user_db.hash_password(request.form["password"]) == stored_password_hash:
         user_db.login(user_id)
         # TODO: Replace with `redirect` once that works.
-        return render_template("redirect.html", to="/")
+        return render_template("redirect.html", to=url_for("index"))
     else:
         # TODO: Add an invalid password error message.
         # TODO: Replace with `redirect` once that works.
-        return render_template("redirect.html", to="/login")
+        return render_template("redirect.html", to=url_for("login"))
 
 @app.route("/logout")
 def logout():
@@ -116,7 +129,7 @@ def logout():
     user_db.logout()
 
     # TODO: Replace with `redirect` once that works.
-    return render_template("redirect.html", to="/")
+    return render_template("redirect.html", to=url_for("index"))
 
 @app.route("/register")
 def register():
@@ -135,17 +148,17 @@ def process_registration():
     if not user_db.validate_username(request.form["username"].lower()):
         # Invalid username.
         # TODO: Add error message.
-        return render_template("redirect.html", to="/register")
+        return render_template("redirect.html", to=url_for("register"))
     
     if not user_db.validate_email(request.form["email"]):
         # Invalid email address.
         # TODO: Add error message.
-        return render_template("redirect.html", to="/register")
+        return render_template("redirect.html", to=url_for("register"))
 
     if not user_db.validate_password(request.form["password"]):
         # Invalid password.
         # TODO: Add error message.
-        return render_template("redirect.html", to="/register")
+        return render_template("redirect.html", to=url_for("register"))
     
     # TODO: Check whether the user already exists.
 
@@ -154,4 +167,4 @@ def process_registration():
     # Log in as the newly-registered user.
     user_db.login(user_db.get_user_id_from_username(request.form["username"].lower()))
 
-    return render_template("redirect.html", to="/")
+    return render_template("redirect.html", to=url_for("index"))
