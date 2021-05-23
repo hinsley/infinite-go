@@ -28,7 +28,7 @@
         {% if username is not none %}
             <br>
         
-            <button id="placeStone" onClick="location = 'go?x={{ cursor[0] }}&y={{ cursor[1] }}';">Place stone</button>
+            <button id="placeStone" onClick="location = '{{ url_for('go', x=cursor[0], y=cursor[1]) }}';">Place stone</button>
         {% endif %}
         <div id="color-legend"></div>
 
