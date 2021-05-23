@@ -37,6 +37,28 @@ def get_stone(x: int, y: int):
             "status":                  entry[6],
         }
 
+def new_pending(user_id: int, since: float) -> bool:
+    """
+    Determines if there are any new pending stones belonging to the player.
+    """
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+
+        cur.execute("""SELECT
+            *
+        FROM
+            stones
+        WHERE
+            player = ? AND
+            status = 'Pending' AND
+            last_status_change_time > ?;""",
+        [user_id, since])
+
+        if cur.fetchone() is None:
+            return False # No new pending stone was found.
+        
+        return True # A pending stone was found.
+
 def next_pending_location(user_id: int, current_coords: Optional[Tuple[int, int]] = None) -> Optional[Tuple[int, int]]:
     """
     Retrieves the next pending stone's coordinates. If current_coords is not specified (or is not pending),

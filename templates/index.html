@@ -36,6 +36,8 @@
         
             <button id="placeStone" onClick="location = '{{ url_for('go', x=cursor[0], y=cursor[1]) }}';">Place stone</button>
             <button id="cyclePending" onClick="location = '{{ url_for('cycle_pending', current_x=cursor[0], current_y=cursor[1]) }}';">Cycle pending stones</button>
+            <script src="{{ url_for('static', filename='scripts/new_pending_poll.js') }}"></script>
+            <script>newPendingPoll('{{ url_for('new_pending_poll', player=session["user"], polling_start_time=polling_start_time) | safe }}');</script>
         {% endif %}
         <div id="color-legend"></div>
 

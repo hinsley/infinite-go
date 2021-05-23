@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request, session, url_for
+from flask import Flask, jsonify, render_template, request, Response, session, url_for
 import json
+import time
 
 import user_db
 import stone_db
@@ -47,7 +48,8 @@ def index():
                            username=(user_db.get_user_info(session["user"], "username")[0] if "user" in session else None),
                            score=f"{stone_db.player_score(session['user']):,}" if "user" in session else None,
                            cursor=cursor,
-                           stones=stones)
+                           stones=stones,
+                           polling_start_time=int(time.time()))
 
 @app.route("/cycle-pending", methods=["GET"])
 def cycle_pending():
@@ -89,6 +91,17 @@ def login():
     Login form page.
     """
     return render_template("login.html")
+
+@app.route("/new-pending-poll", methods=["GET"])
+def new_pending_poll() -> Response:
+    """
+    Checks if any of the player's stones were updated to pending status
+    since the polling start time.
+    """
+    return jsonify(stone_db.new_pending(
+        int(request.args.get("player")),
+        int(request.args.get("polling_start_time"))
+    ))
 
 @app.route("/process-login", methods=["POST"])
 def process_login():
