@@ -17,8 +17,8 @@ In order for the move to be valid, the following criteria must be met:
 - There may not already be a locked stone belonging to the player within the local region.
 - Any pending stones present in the local region must belong to the player.
 
- Pending stones are automatically unlocked after one hour.
+ Pending stones are automatically unlocked after one day.
 
  ---
 
- ***TL;DR: When you place a stone, you can't place another one nearby until someone else answers your move. After someone answers your move, you have one hour to respond before other players can place stones nearby.***
+ ***TL;DR: When you place a stone, you can't place another one nearby until someone else answers your move. After someone answers your move, you have one day to respond before other players can place stones nearby.***
