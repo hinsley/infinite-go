@@ -6,6 +6,7 @@ function newPendingPoll(pollUrl) {
             if (newPendingStone) {
                 var cyclePendingButton = document.getElementById("cyclePending");
                 cyclePendingButton.innerText = "*" + cyclePendingButton.innerText + " (NEW)*";
+                document.title = "*" + document.title + "*"; // Update the tab title.
             } else {
                 newPendingPoll(pollUrl);
             }
