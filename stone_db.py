@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 
 db_file = "data/database.db"
 
-pending_timeout = 3600 # Seconds.
+pending_timeout = 86400 # Seconds.
 
 def get_stone(x: int, y: int):
     """

@@ -7,19 +7,16 @@ function initiatePendingCountdown(pendingSince) {
 
     function pendingCountdownHandler() {
         // Expressed in seconds.
-        var remainingTime = Math.floor(pendingSince + 3600 - epochTime());
+        var remainingTime = Math.floor(pendingSince + 86400 - epochTime());
         
         if (remainingTime > 0) {
             var remainingSeconds = remainingTime % 60;
-            var remainingMinutes = (remainingTime - remainingSeconds) / 60;
+            var remainingMinutes = ((remainingTime - remainingSeconds) % 3600) / 60;
+            var remainingHours = Math.floor(remainingTime / 3600);
             
-            var timerDisplayText = "";
-
-            if (remainingMinutes != 0) {
-                timerDisplayText += remainingMinutes + " minutes and ";
-            }
-
-            timerDisplayText += remainingSeconds + " seconds until stone is unlocked.";
+            var timerDisplayText = remainingHours.toString().padStart(2, "0") + ":" +
+                remainingMinutes.toString().padStart(2, "0") + ":" +
+                remainingSeconds.toString().padStart(2, "0") + " remaining until stone is unlocked.";
 
             timerDisplay.innerText = timerDisplayText;
         } else {
