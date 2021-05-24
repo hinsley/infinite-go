@@ -1,12 +1,12 @@
 function renderGoban(cursor) {
     var goban_div = document.getElementById("goban");
 
-    for (var row = cursor[1] - 6; row < cursor[1] + 7; row++) {
-        for (var col = cursor[0] - 6; col < cursor[0] + 7; col++) {
+    for (var row = cursor[1] - 6n; row < cursor[1] + 7n; row++) {
+        for (var col = cursor[0] - 6n; col < cursor[0] + 7n; col++) {
             var loc = document.createElement("div");
     
             loc.setAttribute("id", "x" + col + "y" + row);
-            if (row % 6 == 0 && col % 6 == 0) {
+            if (row % 6n == 0 && col % 6n == 0) {
                 // The location is a star-point.
                 loc.setAttribute("class", "hoshi");
             } else {

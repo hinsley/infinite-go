@@ -48,8 +48,8 @@
         <script src="{{ url_for('static', filename='scripts/color_code.js') }}"></script>
         <script src="{{ url_for('static', filename='scripts/render_goban.js') }}"></script>
         <script>
-            renderGoban({{ cursor }});
-            renderStones({{ stones | tojson }}, {{ cursor }}, {% if username is not none %} "{{ username }}" {% else %} null {% endif %});
+            renderGoban([BigInt({{ cursor[0] }}), BigInt({{ cursor[1] }})]);
+            renderStones({{ stones | tojson }}, [BigInt({{ cursor[0] }}), BigInt({{ cursor[1] }})], {% if username is not none %} "{{ username }}" {% else %} null {% endif %});
         </script>
     </body>
 </html>
