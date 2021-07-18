@@ -62,7 +62,11 @@ def get_user_id_from_email(email: str) -> int:
 
         cur.execute("SELECT id FROM users WHERE email = ?", [email])
         
-        return cur.fetchone()[0]
+        result = cur.fetchone()
+        if result is None:
+            return None
+        
+        return result[0]
 
 def get_user_id_from_username(username: str) -> int:
     with sqlite3.connect(db_file) as db:
@@ -78,6 +82,16 @@ def hash_password(password: Optional[str]) -> str:
 
     salted_password = password + cfg["password salt"]
     return hashlib.sha256(bytes(salted_password, "utf-8")).hexdigest()
+
+def update_password(user_id: int, new_password: str):
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+
+        cur.execute("""UPDATE users SET password_hash = ? WHERE id = ?""",
+        [
+            hash_password(new_password),
+            user_id
+        ])
 
 def validate_email(email: str) -> bool:
     """

@@ -1,4 +1,10 @@
 {
     "secret key": "CHANGE ME",
-    "password salt": "CHANGE ME"
+    "password salt": "CHANGE ME",
+    "email": {
+        "hostname": "smtp.gmail.com",
+        "port": 587,
+        "address": "CHANGE ME",
+        "password": "CHANGE ME"
+    }
 }

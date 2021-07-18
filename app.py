@@ -2,6 +2,8 @@ from flask import Flask, jsonify, render_template, request, Response, session, u
 import json
 import time
 
+import emails
+
 import user_db
 import stone_db
 
@@ -181,3 +183,70 @@ def process_registration():
     user_db.login(user_db.get_user_id_from_username(request.form["username"].lower()))
 
     return render_template("redirect.html", to=url_for("index"))
+
+@app.route("/password-reset-request", methods=["GET", "POST"])
+def password_reset_request():
+    """
+    Password reset request form page & processing.
+    """
+    if "email" not in request.form:
+        return render_template("password_reset_request.html") # User is attempting to access the form page.
+    # Form has been submitted.
+    if not user_db.validate_email(request.form["email"]):
+        return render_template("password_reset_request.html") # Invalid email address.
+    user_id = user_db.get_user_id_from_email(request.form["email"])
+    if user_id is None:
+        return render_template("password_reset_request.html") # No user with that email address exists.
+    # User with provided email address exists.
+    emails.send_email(
+        "Infinite Go: Password reset",
+        f"""
+        You have requested a password reset for your Infinite Go account. If you did not request this, please ignore this email.
+        To reset your password, please follow this link:
+
+        http://infinite-go.com{url_for("password_reset", user_id=user_id, token=user_db.get_user_info(user_id, "password_hash"))}
+        """,
+        [request.form["email"]]
+    )
+    return "An email has been sent to the provided address. Please check your inbox."
+
+@app.route("/password-reset", methods=["GET", "POST"])
+def password_reset():
+    """
+    Password reset form page & processing.
+    """
+    if "user_id" in request.form and "new_password" in request.form and "confirm_password" in request.form:
+        user_id = request.form["user_id"]
+        if "token" not in request.form or request.form["token"] != user_db.get_user_info(user_id, "password_hash")[0]:
+            # Invalid or unsupplied token.
+            return render_template("redirect.html",
+                                   to=f"{url_for('password_reset')}?user_id={request.form['user_id']}&token={request.form['token']}")
+        # Process password reset.
+        if not user_db.validate_password(request.form["new_password"]):
+            # Invalid password.
+            return render_template("redirect.html",
+                                   to=f"{url_for('password_reset')}?user_id={request.form['user_id']}&token={request.form['token']}")
+        if not request.form["new_password"] == request.form["confirm_password"]:
+            # Passwords do not match.
+            return render_template("redirect.html",
+                                   to=f"{url_for('password_reset')}?user_id={request.form['user_id']}&token={request.form['token']}")
+        # Valid password.
+        user_db.update_password(user_id, request.form["new_password"])
+        return render_template("password_reset_successful.html")
+    if "user_id" not in request.args or \
+       "token" not in request.args or \
+       user_db.get_user_info(int(request.args["user_id"]), "password_hash")[0] != request.args["token"]: # Incomplete or inaccurate data provided.
+        return render_template("redirect.html", to=url_for("password_reset_request")) # Redirect back to the form page.
+    return render_template("password_reset.html",
+                           user_id=request.args["user_id"],
+                           token=request.args["token"])
+    # https://hinsley-infinite-go-mr28-5000.githubpreview.dev/password-reset?user_id=5&token=56439204c405481fd5e65c3de918250964269315dc0d6e034959a43a85467185
+
+@app.route("/viewer")
+def viewer():
+    """
+    Full-board viewer.
+    """
+    return render_template("viewer.html",
+                           username=(user_db.get_user_info(session["user"], "username")[0] if "user" in session else None),
+                           score=f"{stone_db.player_score(session['user']):,}" if "user" in session else None)
