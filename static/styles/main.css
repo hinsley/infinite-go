@@ -12,12 +12,13 @@ div#goban-container {
     justify-content: center;
 }
 
-div#goban {
+#goban {
     width: 650px;
     height: 650px;
     display: flex;
     flex-wrap: wrap;
     outline: solid 1px black;
+    background-color: #cfa570;
 }
 
 div#goban:hover {
