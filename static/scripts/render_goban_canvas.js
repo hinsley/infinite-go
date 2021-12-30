@@ -26,7 +26,6 @@ var cursor_y_initial = null;
 var panning = false;
 
 canvas.addEventListener("mousedown", (e) => {
-    console.log(canvas2World(mouseX(e), mouseY(e)));
     // Start cursor tracker.
     cursor_x_initial = mouseX(e);
     cursor_y_initial = mouseY(e);
