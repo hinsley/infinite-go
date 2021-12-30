@@ -1,8 +1,9 @@
 var rulingSpacing = 50; // Pixels (fixed at 1 in world units).
 var rulingWidth = 0.01; // World units.
-const hoshiRadius = 0.1; // World units.
-const drawRate = 60; // Hz.
-const zoomSpeed = 3; // Pixels per scroll unit.
+var rulingsPerHoshi = 6; // World units (natural number).
+var hoshiRadius = 0.075; // World units.
+var drawRate = 60; // Hz.
+var zoomSpeed = 3; // Pixels per scroll unit.
 
 const canvas = document.getElementById("goban");
 const ctx = canvas.getContext("2d");
@@ -109,7 +110,24 @@ function drawRulings() {
         );
     }
 
-    // TODO: Draw hoshi.
+    // Draw hoshi.
+    // Obtain first hoshi position in world coordinates.
+    var hoshi_x = Math.floor(x() / rulingsPerHoshi) * rulingsPerHoshi;
+    var hoshi_y = Math.floor(y() / rulingsPerHoshi) * rulingsPerHoshi;
+    for (var i = 0; i < canvas.width / rulingSpacing / rulingsPerHoshi + 1; i++) {
+        for (var j = 0; j < canvas.height / rulingSpacing / rulingsPerHoshi + 1; j++) {
+            var hoshi_center = world2Canvas(hoshi_x + i * rulingsPerHoshi, hoshi_y + j * rulingsPerHoshi);
+            ctx.beginPath();
+            ctx.arc(
+                hoshi_center[0],
+                hoshi_center[1],
+                hoshiRadius * rulingSpacing,
+                0,
+                2 * Math.PI
+            );
+            ctx.fill();
+        }
+    }
 }
 
 function world2Canvas(world_x, world_y) {
@@ -128,8 +146,4 @@ function canvas2World(canvas_x, canvas_y) {
 setInterval(() => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawRulings();
-    // TODO: Erase.
-    // Reference for the origin.
-    // origin_coords = world2Canvas(0, 0);
-    // ctx.fillRect(origin_coords[0] - 5, origin_coords[1] - 5, 10, 10);
 }, 1/drawRate);
