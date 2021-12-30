@@ -3,6 +3,7 @@ var rulingWidth = 0.01; // World units.
 var rulingsPerHoshi = 6; // World units (natural number).
 var hoshiRadius = 0.075; // World units.
 var stoneRadius = 0.46; // World units.
+var stoneStatusRadius = 0.12; // World units.
 var stoneOutlineWidth = 0.01; // World units.
 var drawRate = 60; // Hz.
 var zoomSpeed = 3; // Pixels per scroll unit.
@@ -151,6 +152,21 @@ function drawStones(stones, player) {
         ctx.lineWidth = stoneOutlineWidth * rulingSpacing;
         ctx.fill();
         ctx.stroke();
+
+        if (stones[key]["status"] != "Unlocked") {
+            ctx.beginPath();
+            ctx.arc(
+                canvas_coords[0],
+                canvas_coords[1],
+                stoneStatusRadius * rulingSpacing,
+                0,
+                2 * Math.PI
+            );
+            ctx.fillStyle = stones[key]["status"] == "Locked" ? "black" : "red";
+            ctx.strokeStyle = "white";
+            ctx.lineWidth = stoneOutlineWidth * rulingSpacing;
+            ctx.fill();
+        }
     });
 }
 
