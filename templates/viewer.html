@@ -20,5 +20,8 @@
             </div>
 
             <script src="{{ url_for('static', filename='scripts/render_goban_canvas.js') }}"></script>
+            <script>
+                drawLoop({{ stones | tojson }}, {% if username is not none %} "{{ username }}" {% else %} null {% endif %});
+            </script>
     </body>
 </html>

@@ -247,6 +247,21 @@ def viewer():
     """
     Full-board viewer.
     """
+    stone_dict = stone_db.retrieve()
+
+    # We need to pass the player names and score for each stone to the client as well.
+    # CODESMELL
+    player_names = {}
+    for coords in stone_dict:
+        # Perform cacheing so we don't have to access the database multiple times per player.
+        if stone_dict[coords]["player"] not in player_names:
+            player_names[stone_dict[coords]["player"]] = user_db.get_user_info(stone_dict[coords]["player"], "username")
+        stone_dict[coords]["player_name"] = player_names[stone_dict[coords]["player"]]
+
+    # Make the indices comprehensible to Javascript (it can't accept tuples for keys).
+    stones = {" ".join(map(str, stone)): stone_dict[stone] for stone in stone_dict}
+
     return render_template("viewer.html",
                            username=(user_db.get_user_info(session["user"], "username")[0] if "user" in session else None),
-                           score=f"{stone_db.player_score(session['user']):,}" if "user" in session else None)
+                           score=f"{stone_db.player_score(session['user']):,}" if "user" in session else None,
+                           stones=stones)

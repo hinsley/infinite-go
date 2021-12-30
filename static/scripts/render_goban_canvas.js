@@ -2,6 +2,8 @@ var rulingSpacing = 50; // Pixels (fixed at 1 in world units).
 var rulingWidth = 0.01; // World units.
 var rulingsPerHoshi = 6; // World units (natural number).
 var hoshiRadius = 0.075; // World units.
+var stoneRadius = 0.46; // World units.
+var stoneOutlineWidth = 0.01; // World units.
 var drawRate = 60; // Hz.
 var zoomSpeed = 3; // Pixels per scroll unit.
 
@@ -130,6 +132,26 @@ function drawRulings() {
     }
 }
 
+function drawStones(stones, player) {
+    Object.keys(stones).forEach((key) => {
+        var coords = key.split(" ");
+        var canvas_coords = world2Canvas(coords[0], coords[1]);
+        ctx.beginPath();
+        ctx.arc(
+            canvas_coords[0],
+            canvas_coords[1],
+            stoneRadius * rulingSpacing,
+            0,
+            2 * Math.PI
+        );
+        ctx.fillStyle = player == stones[key]["player_name"] ? "black" : "white";
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = stoneOutlineWidth * rulingSpacing;
+        ctx.fill();
+        ctx.stroke();
+    });
+}
+
 function world2Canvas(world_x, world_y) {
     world_canvas_coords = canvas2World(0, 0);
     return [
@@ -142,8 +164,11 @@ function canvas2World(canvas_x, canvas_y) {
     return [x() + canvas_x / rulingSpacing, y() + canvas_y / rulingSpacing];
 }
 
-// Draw the image on the canvas.
-setInterval(() => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawRulings();
-}, 1/drawRate);
+function drawLoop(stones, player) {
+    // Draw the image on the canvas.
+    setInterval(() => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawRulings();
+        drawStones(stones, player);
+    }, 1/drawRate);
+}

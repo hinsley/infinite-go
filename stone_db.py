@@ -180,6 +180,32 @@ def retrieve_region(x, y):
 
         return stones
 
+def retrieve():
+    """
+    Retrieves all stones.
+    TODO: Add filtering options (e.g. regional retrieval).
+    """
+    unlock_stale_pending()
+
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+
+        cur.execute("SELECT * FROM stones;")
+
+        stone_entries = cur.fetchall()
+
+        stones = {}
+
+        for entry in stone_entries:
+            stones[(entry[1], entry[2])] = {
+                "player":                  entry[3],
+                "placement_time":          entry[4],
+                "last_status_change_time": entry[5],
+                "status":                  entry[6],
+            }
+
+        return stones
+
 def unlock_stale_pending():
     """
     Unlocks every pending stone which has timed out.
