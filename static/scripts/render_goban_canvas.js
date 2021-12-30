@@ -86,7 +86,10 @@ function clamp(val, min, max) {
     return Math.min(Math.max(val, min), max);
 }
 
-function drawRulings() {
+function drawGoban() {
+    ctx.fillStyle = "#cfa570";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     ctx.fillStyle = "black";
 
     current_x = x();
@@ -167,7 +170,7 @@ function drawLoop(stones, player) {
     // Draw the image on the canvas.
     setInterval(() => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        drawRulings();
+        drawGoban();
         drawStones(stones, player);
     }, 1/drawRate);
 }
