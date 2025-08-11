@@ -53,7 +53,8 @@ canvas.addEventListener("mousemove", (e) => {
     const my = mouseY(e);
     const hovered = findHoveredStone(mx, my);
     if (hovered) {
-        showTooltip(`${hovered.player_name} — ${Number(hovered.player_score).toLocaleString()} stones`, mx + 12, my + 12);
+        // Use viewport coordinates for the fixed-position tooltip
+        showTooltip(`${hovered.player_name} — ${Number(hovered.player_score).toLocaleString()} stones`, e.clientX + 12, e.clientY + 12);
     } else {
         hideTooltip();
     }
