@@ -53,10 +53,28 @@
                 let selectedY = Number({{ cursor[1] }});
                 
                 // Initialize canvas draw loop and selected cell highlight
-                drawLoop(stonesData, currentPlayer);
-                if (typeof setSelectedCell === 'function') {
-                    setSelectedCell(selectedX, selectedY);
-                }
+drawLoop(stonesData, currentPlayer);
+if (typeof setSelectedCell === 'function') {
+    setSelectedCell(selectedX, selectedY);
+}
+
+// On first load, if a selection is present in URL/server, pan to it and reset zoom to initial level
+(function() {
+    const params = new URLSearchParams(location.search);
+    const hasX = params.has('x');
+    const hasY = params.has('y');
+    if (hasX && hasY) {
+        const ux = Number(params.get('x'));
+        const uy = Number(params.get('y'));
+        if (Number.isFinite(ux) && Number.isFinite(uy)) {
+            if (typeof centerAndResetZoom === 'function') {
+                centerAndResetZoom(ux, uy);
+            } else if (typeof centerOnWorldCoord === 'function') {
+                centerOnWorldCoord(ux, uy);
+            }
+        }
+    }
+})();
  
                  function updateUrl(x, y) {
                      const newUrl = `${location.pathname}?x=${x}&y=${y}`;
@@ -461,11 +479,17 @@
                                  // Oldest overall
                                  next = pending.sort((a,b)=>a.since-b.since)[0];
                              }
-                             applySelection(next.x, next.y);
-                             if (typeof centerOnWorldCoord === 'function') {
-                                 centerOnWorldCoord(next.x, next.y);
-                             }
-                         });
+                             // Only pan if the selected position actually changes
+const prevX = selectedX; const prevY = selectedY;
+applySelection(next.x, next.y);
+if ((prevX !== next.x || prevY !== next.y)) {
+    if (typeof centerAndResetZoom === 'function') {
+        centerAndResetZoom(next.x, next.y);
+    } else if (typeof centerOnWorldCoord === 'function') {
+        centerOnWorldCoord(next.x, next.y);
+    }
+}
+});
                      }
                  })();
              </script>
