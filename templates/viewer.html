@@ -95,21 +95,25 @@ if (typeof setSelectedCell === 'function') {
     setSelectedCell(selectedX, selectedY);
 }
 
-// On first load, if a selection is present in URL/server, pan to it and reset zoom to initial level
+// On first load, pan to selection (URL if provided, else server default) and reset zoom to initial level
 (function() {
     const params = new URLSearchParams(location.search);
     const hasX = params.has('x');
     const hasY = params.has('y');
+    let cx = selectedX;
+    let cy = selectedY;
     if (hasX && hasY) {
         const ux = Number(params.get('x'));
-        const uy = Number(params.get('y'));
+        const uy = Number(params.get('y')); 
         if (Number.isFinite(ux) && Number.isFinite(uy)) {
-            if (typeof centerAndResetZoom === 'function') {
-                centerAndResetZoom(ux, uy);
-            } else if (typeof centerOnWorldCoord === 'function') {
-                centerOnWorldCoord(ux, uy);
-            }
+            cx = ux;
+            cy = uy;
         }
+    }
+    if (typeof centerAndResetZoom === 'function') {
+        centerAndResetZoom(cx, cy);
+    } else if (typeof centerOnWorldCoord === 'function') {
+        centerOnWorldCoord(cx, cy);
     }
 })();
  
