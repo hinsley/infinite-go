@@ -19,39 +19,9 @@ app.secret_key = cfg["secret key"]
 @app.route("/", methods=["GET"])
 def index():
     """
-    The page where the game is actually played. We need to send 3 items to
-    the client in an JSON object:
-    - Cursor coordinates (obtained from GET data),
-    - All data associated with any nearby stones, and
-    - The logged-in username.
+    Default route now serves the full-board viewer interface.
     """
-    try:
-        cursor = [int(request.args["x"]), int(request.args["y"])]
-    except KeyError:
-        cursor = [0, 0]
-
-    selected_stones = stone_db.retrieve_region(*cursor)
-    # We need to pass the player names and scores for each stone to the client as well.
-    # CODESMELL
-    player_names = {}
-    player_scores = {}
-    for coords in selected_stones:
-        # Perform cacheing so we don't have to access the database multiple times per player.
-        if selected_stones[coords]["player"] not in player_names:
-            player_names[selected_stones[coords]["player"]] = user_db.get_user_info(selected_stones[coords]["player"], "username")[0]
-            player_scores[selected_stones[coords]["player"]] = stone_db.player_score(selected_stones[coords]["player"])
-        selected_stones[coords]["player_name"] = player_names[selected_stones[coords]["player"]]
-        selected_stones[coords]["player_score"] = player_scores[selected_stones[coords]["player"]]
-    
-    # Make the indices comprehensible to Javascript (it can't accept tuples for keys).
-    stones = {" ".join(map(str, stone)): selected_stones[stone] for stone in selected_stones}
-
-    return render_template("index.html",
-                           username=(user_db.get_user_info(session["user"], "username")[0] if "user" in session else None),
-                           score=f"{stone_db.player_score(session['user']):,}" if "user" in session else None,
-                           cursor=cursor,
-                           stones=stones,
-                           polling_start_time=int(time.time()))
+    return viewer()
 
 @app.route("/cycle-pending", methods=["GET"])
 def cycle_pending():
