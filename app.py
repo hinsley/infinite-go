@@ -19,7 +19,7 @@ app.secret_key = cfg["secret key"]
 @app.route("/", methods=["GET"])
 def index():
     """
-    Default route now serves the full-board viewer interface.
+    Render the full-board viewer interface.
     """
     return viewer()
 
