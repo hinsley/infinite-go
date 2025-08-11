@@ -77,8 +77,8 @@ def go():
 
     if move_validation.check_valid_move(session["user"], (x, y)):
         local_stones = stone_db.retrieve_region(x, y)
-        for stone_pos in local_stones:
-            move_validation.evolve_status(stone_pos)
+        for stone_pos, stone_row in local_stones.items():
+            move_validation.evolve_status(stone_pos, stone_row)
         stone_db.place_stone(session["user"], x, y)
         captures.perform_captures((x, y))
     else:
@@ -112,8 +112,8 @@ def go_json():
 
     if move_validation.check_valid_move(session["user"], (x, y)):
         local_stones = stone_db.retrieve_region(x, y)
-        for stone_pos in local_stones:
-            move_validation.evolve_status(stone_pos)
+        for stone_pos, stone_row in local_stones.items():
+            move_validation.evolve_status(stone_pos, stone_row)
         stone_db.place_stone(session["user"], x, y)
         captures.perform_captures((x, y))
         after_ts = time.time()
