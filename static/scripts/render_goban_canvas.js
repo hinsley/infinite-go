@@ -13,6 +13,20 @@ var initialRulingSpacing = rulingSpacing; // Remember the initial zoom level for
 const canvas = document.getElementById("goban");
 const ctx = canvas.getContext("2d");
 
+// Ensure the canvas fits the viewport on mobile to avoid horizontal scrolling
+function resizeCanvasToFit() {
+    const maxSize = 650;
+    const viewportWidth = Math.min(window.innerWidth || maxSize, document.documentElement.clientWidth || maxSize);
+    const targetSize = Math.max(200, Math.min(maxSize, Math.floor(viewportWidth))); // guard a minimum size
+    // Keep canvas backing store equal to CSS size for simple coordinate math
+    canvas.style.width = `${targetSize}px`;
+    canvas.style.height = `${targetSize}px`;
+    canvas.width = targetSize;
+    canvas.height = targetSize;
+}
+resizeCanvasToFit();
+window.addEventListener('resize', resizeCanvasToFit);
+
 var _x = -0.5;
 var _y = -0.5;
 // var _x = Math.round(rulingSpacing / 2);
@@ -29,6 +43,15 @@ var cursor_y_initial = null;
 var panning = false;
 // Flag to suppress click selection immediately after a drag-based pan
 window.suppressNextClickSelection = false;
+
+// Touch pan thresholding to avoid accidental pans on tiny drags
+const TOUCH_PAN_START_THRESHOLD = 8; // pixels
+let panPointerId = null;
+let activePointers = new Map();
+let initialPinchDistance = null;
+let initialPinchCenterCanvas = null; // [x, y] in canvas pixels
+let initialPinchWorld = null; // [x, y] in world coords under pinch center at pinch start
+let pinchBaseRulingSpacing = null;
 
 // Tooltip and hover state
 var tooltipEl = document.getElementById("stone-tooltip");
@@ -124,13 +147,6 @@ canvas.addEventListener("wheel", (e) => {
 }, { passive: false });
 
 // Pointer events for touch drag and pinch zoom on mobile devices
-let activePointers = new Map();
-let panPointerId = null;
-let initialPinchDistance = null;
-let initialPinchCenterCanvas = null; // [x, y] in canvas pixels
-let initialPinchWorld = null; // [x, y] in world coords under pinch center at pinch start
-let pinchBaseRulingSpacing = null;
-
 function getCanvasXYFromClient(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     return [clientX - rect.left, clientY - rect.top];
@@ -143,13 +159,13 @@ canvas.addEventListener('pointerdown', (e) => {
     activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
 
     if (activePointers.size === 1) {
-        // Begin single-finger pan
+        // Prepare single-finger interaction; do not start panning until movement exceeds threshold
         panPointerId = e.pointerId;
         const [cx, cy] = getCanvasXYFromClient(e.clientX, e.clientY);
         cursor_x_initial = cx;
         cursor_y_initial = cy;
-        panning = true;
-        hideTooltip();
+        panning = false; // will activate if movement passes threshold
+        updateTouchTooltip(e);
     } else if (activePointers.size === 2) {
         // Begin pinch
         panning = false;
@@ -195,12 +211,20 @@ canvas.addEventListener('pointermove', (e) => {
         return;
     }
 
-    // Single-finger pan
-    if (panning && e.pointerId === panPointerId) {
+    // Single-finger interaction
+    if (e.pointerId === panPointerId) {
         const [cx, cy] = getCanvasXYFromClient(e.clientX, e.clientY);
-        _x_offset = cursor_x_initial - cx;
-        _y_offset = cursor_y_initial - cy;
-        hideTooltip();
+        const dx = cx - cursor_x_initial;
+        const dy = cy - cursor_y_initial;
+        const dist = Math.hypot(dx, dy);
+        if (!panning && dist >= TOUCH_PAN_START_THRESHOLD) {
+            panning = true;
+        }
+        if (panning) {
+            _x_offset = cursor_x_initial - cx;
+            _y_offset = cursor_y_initial - cy;
+        }
+        updateTouchTooltip(e);
     }
 }, { passive: false });
 
@@ -222,6 +246,18 @@ function endPointer(e) {
         panning = false;
     }
 
+    // If it was a tap (no pan), perform a selection explicitly and suppress the synthetic click
+    if (e.pointerId === panPointerId && !panning) {
+        window.suppressNextClickSelection = true;
+        const [cx, cy] = getCanvasXYFromClient(e.clientX, e.clientY);
+        const world = canvas2World(cx, cy);
+        const selX = Math.round(world[0]);
+        const selY = Math.round(world[1]);
+        if (typeof window.applySelection === 'function') {
+            window.applySelection(selX, selY);
+        }
+    }
+
     activePointers.delete(e.pointerId);
     try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
 
@@ -232,6 +268,7 @@ function endPointer(e) {
         initialPinchWorld = null;
         pinchBaseRulingSpacing = null;
         panPointerId = null;
+        hideTooltip();
     } else if (activePointers.size === 1) {
         // Transition from pinch to pan with remaining pointer
         const [remainingId, pt] = Array.from(activePointers.entries())[0];
@@ -239,14 +276,13 @@ function endPointer(e) {
         const [cx, cy] = getCanvasXYFromClient(pt.clientX, pt.clientY);
         cursor_x_initial = cx;
         cursor_y_initial = cy;
-        panning = true;
+        panning = false; // will activate if movement passes threshold
         initialPinchDistance = null;
         initialPinchCenterCanvas = null;
         initialPinchWorld = null;
         pinchBaseRulingSpacing = null;
+        updateTouchTooltip({ clientX: pt.clientX, clientY: pt.clientY });
     }
-
-    hideTooltip();
 }
 
 canvas.addEventListener('pointerup', endPointer, { passive: false });
@@ -263,6 +299,20 @@ function showTooltip(text, xPx, yPx) {
     tooltipEl.style.left = `${xPx}px`;
     tooltipEl.style.top = `${yPx}px`;
     tooltipEl.style.display = "block";
+}
+
+function updateTouchTooltip(e) {
+    // For touch: show tooltip while a finger is pressed, following the finger, if over a stone
+    if (!e || !tooltipEl) return;
+    const [cx, cy] = getCanvasXYFromClient(e.clientX, e.clientY);
+    const hovered = findHoveredStone(cx, cy);
+    if (hovered) {
+        const scoreStr = Number(hovered.player_score).toLocaleString();
+        const tooltipText = `${hovered.player_name} (${scoreStr})\n${formatTimestamp(hovered.placement_time)}`;
+        showTooltip(tooltipText, e.clientX + 12, e.clientY + 12);
+    } else {
+        hideTooltip();
+    }
 }
 
 // Format epoch seconds to "YYYY-MM-DD HH:MM:SS" in the user's local time
