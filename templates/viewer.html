@@ -48,8 +48,41 @@
             <script>
                 // Make stones data reusable across features
                 const stonesData = {{ stones | tojson }};
+                // Expose for other modules (e.g., canvas tooltip refresher)
+                window.stonesData = stonesData;
                 const currentPlayer = {% if username is not none %} "{{ username }}" {% else %} null {% endif %};
                 
+                /**
+                 * PendingStonesIndex: cache for efficiently managing Pending stones.
+                 * - Maintains a Map keyed by "x y" -> { x, y, since } for stones with status === 'Pending'.
+                 * - Supports quick retrieval of the next-to-unlock stones and fast updates on placements/captures/unlocks.
+                 * - Must ALWAYS be kept in sync with `stonesData` when stones are added/removed or statuses change.
+                 */
+                const PendingStonesIndex = (() => {
+                    const byKey = new Map();
+                    function keyOf(x, y) { return `${x} ${y}`; }
+                    function add(x, y, since) { byKey.set(keyOf(x,y), { x, y, since: Number(since)||0 }); }
+                    function remove(x, y) { byKey.delete(keyOf(x,y)); }
+                    function has(x, y) { return byKey.has(keyOf(x,y)); }
+                    function get(x, y) { return byKey.get(keyOf(x,y)) || null; }
+                    function rebuildFrom(stones) {
+                        byKey.clear();
+                        Object.keys(stones).forEach((k) => {
+                            const s = stones[k];
+                            if (s && s.status === 'Pending') {
+                                const parts = k.split(' ');
+                                add(parseInt(parts[0],10), parseInt(parts[1],10), s.last_status_change_time);
+                            }
+                        });
+                    }
+                    function forEach(fn) { byKey.forEach((v)=>fn(v)); }
+                    function size() { return byKey.size; }
+                    function nextUnlocking(limit=10) {
+                        return Array.from(byKey.values()).sort((a,b)=>a.since-b.since).slice(0, limit);
+                    }
+                    return { add, remove, has, get, rebuildFrom, forEach, size, nextUnlocking };
+                })();
+
                 // Selection state
                 let selectedX = Number({{ cursor[0] }});
                 let selectedY = Number({{ cursor[1] }});
@@ -94,6 +127,9 @@ if (typeof setSelectedCell === 'function') {
                 function setStoneAt(x, y, stoneObj) { stonesData[getStoneKey(x, y)] = stoneObj; }
                 function removeStoneAt(x, y) { delete stonesData[getStoneKey(x, y)]; }
                 function neighborsOf(x, y) { return [ [x-1, y], [x, y+1], [x+1, y], [x, y-1] ]; }
+
+                // Build initial PendingStonesIndex from server data
+                PendingStonesIndex.rebuildFrom(stonesData);
 
                 // Live per-player global stone counts; initialize from server-provided player_score
                 const playerScores = new Map();
@@ -205,6 +241,14 @@ if (typeof setSelectedCell === 'function') {
                             s["status"] = next;
                             s["last_status_change_time"] = now;
                             stonesData[coords] = s;
+                            // Maintain PendingStonesIndex
+                            const parts = coords.split(' ');
+                            const cx = parseInt(parts[0],10), cy = parseInt(parts[1],10);
+                            if (next === 'Pending') {
+                                PendingStonesIndex.add(cx, cy, now);
+                            } else {
+                                PendingStonesIndex.remove(cx, cy);
+                            }
                         }
                     });
                 }
@@ -261,6 +305,10 @@ if (typeof setSelectedCell === 'function') {
                                 if (s) {
                                     const pname = String(s["player_name"]);
                                     removedByPlayer.set(pname, (removedByPlayer.get(pname) || 0) + 1);
+                                    // Keep PendingStonesIndex in sync when captured
+                                    if (s.status === 'Pending') {
+                                        PendingStonesIndex.remove(coords[0], coords[1]);
+                                    }
                                 }
                                 removedCoords.push(coords);
                             }
@@ -278,6 +326,11 @@ if (typeof setSelectedCell === 'function') {
                     if (selfRes.captured) {
                         let count = 0;
                         for (const [, coords] of selfRes.group) {
+                            // Sync index on suicide removal (check before deletion)
+                            const removedStone = getStoneAt(coords[0], coords[1]);
+                            if (removedStone && removedStone.status === 'Pending') {
+                                PendingStonesIndex.remove(coords[0], coords[1]);
+                            }
                             removeStoneAt(coords[0], coords[1]);
                             count += 1;
                         }
@@ -410,6 +463,9 @@ if (typeof setSelectedCell === 'function') {
                                 placement_time: nowTs,
                                 last_status_change_time: nowTs
                             });
+                            // New locked stone is not pending
+                            if (PendingStonesIndex.has(selectedX, selectedY)) PendingStonesIndex.remove(selectedX, selectedY);
+
                             // Update scores for placement
                             updateUserScoreBy(1);
                             // Ensure the new stone carries updated score
@@ -463,6 +519,14 @@ if (typeof setSelectedCell === 'function') {
                                      });
                                  }
                              });
+                             // Also consult the PendingStonesIndex to ensure coverage
+                             PendingStonesIndex.forEach(({x,y,since}) => {
+                                 const k = `${x} ${y}`;
+                                 const s = stonesData[k];
+                                 if (s && s.player_name === currentPlayer && s.status === 'Pending') {
+                                     pending.push({ x, y, since });
+                                 }
+                             });
                              if (pending.length === 0) {
                                  // No pending stones; keep selection
                                  return;
@@ -495,6 +559,42 @@ if ((prevX !== next.x || prevY !== next.y)) {
 });
                      }
                  })();
+
+                  // One-second timer: auto-unlock pending stones and refresh UI/tooltip
+                  (function startPendingUnlockTimer(){
+                      function tryUnlockPending() {
+                          const now = Date.now() / 1000;
+                          // Gather keys to update after iteration
+                          const toUnlock = [];
+                          PendingStonesIndex.forEach(({x,y,since}) => {
+                              if (since + 86400 <= now) {
+                                  toUnlock.push([x,y]);
+                              }
+                          });
+                          if (toUnlock.length > 0) {
+                              for (let i=0;i<toUnlock.length;i++) {
+                                  const [ux, uy] = toUnlock[i];
+                                  const k = `${ux} ${uy}`;
+                                  const s = stonesData[k];
+                                  if (s && s.status === 'Pending') {
+                                      s.status = 'Unlocked';
+                                      s.last_status_change_time = now;
+                                      stonesData[k] = s;
+                                  }
+                                  PendingStonesIndex.remove(ux, uy);
+                              }
+                              // Ensure any selection-dependent UI updates
+                              updatePlaceStoneDisabled(selectedX, selectedY);
+                              updatePendingCountdown(selectedX, selectedY);
+                              rebuildLeaderboard(selectedX, selectedY);
+                          }
+                          // Refresh tooltip countdown while hovering a pending stone
+                          if (typeof window.refreshHoverTooltipNow === 'function') {
+                              window.refreshHoverTooltipNow();
+                          }
+                      }
+                      setInterval(tryUnlockPending, 1000);
+                  })();
              </script>
     </body>
 </html>
