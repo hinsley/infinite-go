@@ -25,17 +25,13 @@
                 X: {{ cursor[0] }}, Y: {{ cursor[1] }}
             </div>
             
-            {% if "%s %s" % (cursor[0], cursor[1]) in stones and stones["%s %s" % (cursor[0], cursor[1])]["status"] == "Pending" %}
-            <div id="pending-countdown">This stone is pending.</div>
-            <script src="{{ url_for('static', filename='scripts/pending_countdown.js') }}"></script>
-            <script>initiatePendingCountdown({{ stones["%s %s" % (cursor[0], cursor[1])]["last_status_change_time"] }});</script>
-            {% endif %}
+            <div id="pending-countdown"></div>
 
             {% if username is not none %}
                 <br>
                 
-                <button id="placeStone" onClick="location = '{{ url_for('go', x=cursor[0], y=cursor[1]) }}';">Place stone</button>
-                <button id="cyclePending" onClick="location = '{{ url_for('cycle_pending', current_x=cursor[0], current_y=cursor[1]) }}';">Cycle pending stones</button>
+                <button id="placeStone">Place stone</button>
+                <button id="cyclePending">Cycle pending stones</button>
                 <script src="{{ url_for('static', filename='scripts/new_pending_poll.js') }}"></script>
                 <script>newPendingPoll('{{ url_for('new_pending_poll', player=session["user"], polling_start_time=polling_start_time) | safe }}');</script>
             {% endif %}
@@ -50,10 +46,35 @@
             <script>
                 // Make stones data reusable across features
                 const stonesData = {{ stones | tojson }};
-                const cursorPos = [BigInt({{ cursor[0] }}), BigInt({{ cursor[1] }})];
                 const currentPlayer = {% if username is not none %} "{{ username }}" {% else %} null {% endif %};
+                
+                // Selection state
+                let selectedX = Number({{ cursor[0] }});
+                let selectedY = Number({{ cursor[1] }});
+                
+                // Initialize canvas draw loop and selected cell highlight
+                drawLoop(stonesData, currentPlayer);
+                if (typeof setSelectedCell === 'function') {
+                    setSelectedCell(selectedX, selectedY);
+                }
+ 
+                 function updateUrl(x, y) {
+                     const newUrl = `${location.pathname}?x=${x}&y=${y}`;
+                     history.replaceState({}, '', newUrl);
+                 }
+ 
+                 function updateCursorInfo(x, y) {
+                     const el = document.getElementById('cursor-info');
+                     if (el) el.textContent = `X: ${x}, Y: ${y}`;
+                 }
+ 
+                function getStoneKey(x, y) { return `${x} ${y}`; }
+                function hasStoneAt(x, y) { return Object.prototype.hasOwnProperty.call(stonesData, getStoneKey(x, y)); }
+                function getStoneAt(x, y) { return stonesData[getStoneKey(x, y)] || null; }
+                function setStoneAt(x, y, stoneObj) { stonesData[getStoneKey(x, y)] = stoneObj; }
+                function removeStoneAt(x, y) { delete stonesData[getStoneKey(x, y)]; }
+                function neighborsOf(x, y) { return [ [x-1, y], [x, y+1], [x+1, y], [x, y-1] ]; }
 
-                // Compute local 13x13 region around cursor (matching index)
                 function localRegionStones(allStones, cx, cy) {
                     const out = {};
                     Object.keys(allStones).forEach((key) => {
@@ -66,66 +87,301 @@
                     });
                     return out;
                 }
-                const cxNum = Number(cursorPos[0]);
-                const cyNum = Number(cursorPos[1]);
-                const regionStones = localRegionStones(stonesData, cxNum, cyNum);
-
-                // Draw loop and interactions
-                drawLoop(stonesData, currentPlayer);
-
-                // Click-to-select: compute nearest integer world coords and update GET params on /viewer
-                (function() {
-                    const canvasEl = document.getElementById('goban');
-                    canvasEl.addEventListener('click', function(e) {
-                        const world = canvas2World(mouseX(e), mouseY(e));
-                        const selX = Math.round(world[0]);
-                        const selY = Math.round(world[1]);
-                        location = '/viewer?x=' + selX + '&y=' + selY;
-                    });
-                })();
-
-                // Build color legend (same method as index) using local region stones
-                (function() {
-                    var player_scores = [];
-                    var player_names = [];
-                    Object.values(regionStones).forEach((stone) => {
-                        if (!player_names.includes(stone["player_name"])) {
-                            player_scores.push(stone["player_score"]);
-                            player_names.push(stone["player_name"]);
+ 
+                 function updatePlaceStoneDisabled(x, y) {
+                     const btn = document.getElementById('placeStone');
+                     if (!btn) return;
+                     const regionStones = localRegionStones(stonesData, x, y);
+                     let validMove = Object.keys(regionStones).length > 0;
+                     Object.keys(regionStones).forEach((coords) => {
+                         const s = regionStones[coords];
+                         if (
+                             `${x} ${y}` === coords ||
+                             (s["status"] === "Locked" && s["player_name"] === currentPlayer) ||
+                             (s["status"] === "Pending" && s["player_name"] !== currentPlayer)
+                         ) {
+                             validMove = false;
+                         }
+                     });
+                     if (!validMove) {
+                         btn.setAttribute('disabled', true);
+                     } else {
+                         btn.removeAttribute('disabled');
+                     }
+                     return validMove;
+                 }
+ 
+                 let countdownIntervalId = null;
+                 function updatePendingCountdown(x, y) {
+                     const el = document.getElementById('pending-countdown');
+                     if (!el) return;
+                     if (countdownIntervalId !== null) {
+                         clearInterval(countdownIntervalId);
+                         countdownIntervalId = null;
+                     }
+                     const key = `${x} ${y}`;
+                     const stone = stonesData[key];
+                     if (!stone || stone["status"] !== 'Pending') {
+                         el.textContent = '';
+                         return;
+                     }
+                     const pendingSince = Number(stone["last_status_change_time"]);
+                     function epoch() { return Date.now() / 1000; }
+                     function tick() {
+                         const remaining = Math.floor(pendingSince + 86400 - epoch());
+                         if (remaining > 0) {
+                             const sec = remaining % 60;
+                             const min = Math.floor((remaining % 3600) / 60);
+                             const hrs = Math.floor(remaining / 3600);
+                             el.textContent = `${hrs.toString().padStart(2,'0')}:${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')} remaining until stone is unlocked.`;
+                         } else {
+                             el.textContent = 'Stone unlocked; refresh to update.';
+                         }
+                     }
+                     tick();
+                     countdownIntervalId = setInterval(tick, 1000);
+                 }
+ 
+                function evolveStatusesAround(x, y) {
+                    const region = localRegionStones(stonesData, x, y);
+                    const now = Date.now() / 1000;
+                    Object.keys(region).forEach((coords) => {
+                        const s = region[coords];
+                        const prev = s["status"];
+                        let next = prev;
+                        if (prev === 'Locked') next = 'Pending';
+                        else if (prev === 'Pending') next = 'Unlocked';
+                        if (next !== prev) {
+                            s["status"] = next;
+                            s["last_status_change_time"] = now;
+                            stonesData[coords] = s;
                         }
                     });
-                    // Assign colors by relative player scores.
-                    player_names = refSort(player_names, player_scores).reverse();
-                    player_scores.sort((a, b) => b - a);
-                    for (var i = 0; i < player_names.length; i++) {
-                        var legendEntry = document.createElement("div");
-                        legendEntry.setAttribute("class", "legend-entry");
-                        var colorIcon = document.createElement("div");
-                        colorIcon.setAttribute("class", "color-icon");
-                        colorIcon.setAttribute("style", "background-color: " + color_code[i] + ";");
-                        legendEntry.appendChild(colorIcon);
-                        legendEntry.append(" " + player_names[i] + " (" + Number(player_scores[i]).toLocaleString() + ")");
-                        document.getElementById("color-legend").appendChild(legendEntry);
-                    }
-                })();
+                }
 
-                // Disable Place stone when invalid (same logic as index) using local region stones
-                (function() {
-                    var validMove = Object.keys(regionStones).length > 0;
-                    Object.keys(regionStones).forEach((coords) => {
-                        if (
-                            (cursorPos[0] + " " + cursorPos[1]) == coords ||
-                            (regionStones[coords]["status"] == "Locked" && regionStones[coords]["player_name"] == currentPlayer) ||
-                            (regionStones[coords]["status"] == "Pending" && regionStones[coords]["player_name"] != currentPlayer)
-                        ) {
-                            validMove = false;
+                function findGroupAndCaptured(originX, originY) {
+                    const origin = getStoneAt(originX, originY);
+                    if (!origin) return { group: new Map(), captured: false };
+                    const player = origin["player_name"];
+                    const group = new Map();
+                    group.set(getStoneKey(originX, originY), [originX, originY]);
+                    const queue = neighborsOf(originX, originY);
+                    const visited = new Set(group.keys());
+                    while (queue.length > 0) {
+                        const [nx, ny] = queue.pop();
+                        const key = getStoneKey(nx, ny);
+                        if (visited.has(key)) continue;
+                        visited.add(key);
+                        const s = getStoneAt(nx, ny);
+                        if (!s) {
+                            // liberty found
+                            return { group, captured: false };
                         }
-                    });
-                    if (!validMove) {
-                        var btn = document.getElementById("placeStone");
-                        if (btn) btn.setAttribute("disabled", true);
+                        if (s["player_name"] === player) {
+                            group.set(key, [nx, ny]);
+                            const nextAdj = neighborsOf(nx, ny);
+                            for (let k = 0; k < nextAdj.length; k++) queue.push(nextAdj[k]);
+                        }
                     }
-                })();
-            </script>
+                    // no liberties
+                    return { group, captured: true };
+                }
+
+                function resolveCapturesAfterPlacement(px, py) {
+                    // Stage 1: check opponent groups adjacent to the placed stone
+                    const adj = neighborsOf(px, py);
+                    let removed = [];
+                    const toCheck = [];
+                    for (let i = 0; i < adj.length; i++) {
+                        const [ax, ay] = adj[i];
+                        const s = getStoneAt(ax, ay);
+                        if (!s) continue;
+                        toCheck.push([ax, ay]);
+                    }
+                    const removedSet = new Set();
+                    for (let i = 0; i < toCheck.length; i++) {
+                        const [cx, cy] = toCheck[i];
+                        const res = findGroupAndCaptured(cx, cy);
+                        if (res.captured) {
+                            for (const [, coords] of res.group) {
+                                const key = getStoneKey(coords[0], coords[1]);
+                                if (!removedSet.has(key)) {
+                                    removedSet.add(key);
+                                    removed.push(coords);
+                                }
+                            }
+                        }
+                    }
+                    if (removed.length > 0) {
+                        for (let i = 0; i < removed.length; i++) {
+                            const [rx, ry] = removed[i];
+                            removeStoneAt(rx, ry);
+                        }
+                        return { removed, suicideRemoved: 0 };
+                    }
+                    // Stage 2: suicide check on the placed stone's group
+                    const selfRes = findGroupAndCaptured(px, py);
+                    if (selfRes.captured) {
+                        let count = 0;
+                        for (const [, coords] of selfRes.group) {
+                            removeStoneAt(coords[0], coords[1]);
+                            count += 1;
+                        }
+                        return { removed: [], suicideRemoved: count };
+                    }
+                    return { removed: [], suicideRemoved: 0 };
+                }
+
+                function updateUserScoreBy(delta) {
+                    if (!currentPlayer || delta === 0) return;
+                    const h3 = document.querySelector('h3');
+                    if (!h3) return;
+                    const html = h3.innerHTML;
+                    const m = html.match(/You have\s+([0-9,]+)/);
+                    if (!m) return;
+                    const current = parseInt(m[1].replace(/,/g, ''), 10);
+                    const next = Math.max(0, current + delta);
+                    const nextStr = next.toLocaleString();
+                    h3.innerHTML = html.replace(/You have\s+([0-9,]+)/, `You have ${nextStr}`);
+                }
+
+                function applySelection(x, y) {
+                    selectedX = x; selectedY = y;
+                    if (typeof setSelectedCell === 'function') setSelectedCell(x, y);
+                    updateUrl(x, y);
+                    updateCursorInfo(x, y);
+                    updatePlaceStoneDisabled(x, y);
+                    updatePendingCountdown(x, y);
+                }
+ 
+                 // Initial UI state based on server-provided cursor
+                 applySelection(selectedX, selectedY);
+ 
+                 // Click-to-select: highlight cell and update URL without reload
+                 (function() {
+                     const canvasEl = document.getElementById('goban');
+                     canvasEl.addEventListener('click', function(e) {
+                         const world = canvas2World(mouseX(e), mouseY(e));
+                         const selX = Math.round(world[0]);
+                         const selY = Math.round(world[1]);
+                         applySelection(selX, selY);
+                     });
+                 })();
+ 
+                 // Build color legend (same method as index) using local region stones near initial cursor
+                 (function() {
+                     const cxNum = Number(selectedX);
+                     const cyNum = Number(selectedY);
+                     const regionStones = localRegionStones(stonesData, cxNum, cyNum);
+                     var player_scores = [];
+                     var player_names = [];
+                     Object.values(regionStones).forEach((stone) => {
+                         if (!player_names.includes(stone["player_name"])) {
+                             player_scores.push(stone["player_score"]);
+                             player_names.push(stone["player_name"]);
+                         }
+                     });
+                     // Assign colors by relative player scores.
+                     player_names = refSort(player_names, player_scores).reverse();
+                     player_scores.sort((a, b) => b - a);
+                     for (var i = 0; i < player_names.length; i++) {
+                         var legendEntry = document.createElement("div");
+                         legendEntry.setAttribute("class", "legend-entry");
+                         var colorIcon = document.createElement("div");
+                         colorIcon.setAttribute("class", "color-icon");
+                         colorIcon.setAttribute("style", "background-color: " + color_code[i] + ";");
+                         legendEntry.appendChild(colorIcon);
+                         legendEntry.append(" " + player_names[i] + " (" + Number(player_scores[i]).toLocaleString() + ")");
+                         document.getElementById("color-legend").appendChild(legendEntry);
+                     }
+                 })();
+ 
+                 // Wire up buttons
+                 (function() {
+                     const placeBtn = document.getElementById('placeStone');
+                     if (placeBtn) {
+                         placeBtn.addEventListener('click', function() {
+                            // Client-side validation and immediate update without reload
+                            const valid = updatePlaceStoneDisabled(selectedX, selectedY);
+                            if (!valid) return;
+                            if (!currentPlayer) return;
+
+                            // Evolve statuses in local region (pre-placement)
+                            evolveStatusesAround(selectedX, selectedY);
+                            // Place stone locally
+                            setStoneAt(selectedX, selectedY, {
+                                player_name: currentPlayer,
+                                status: 'Locked',
+                                placement_time: Date.now() / 1000,
+                                last_status_change_time: Date.now() / 1000
+                            });
+                            // Update UI and score optimistically
+                            updateUserScoreBy(1);
+                            // Resolve captures locally
+                            const cap = resolveCapturesAfterPlacement(selectedX, selectedY);
+                            if (cap.suicideRemoved > 0) {
+                                updateUserScoreBy(-cap.suicideRemoved);
+                            }
+                            // Re-run disabled state and pending countdown
+                            updatePlaceStoneDisabled(selectedX, selectedY);
+                            updatePendingCountdown(selectedX, selectedY);
+
+                            // Persist on server in background
+                            fetch(`/go-json?x=${selectedX}&y=${selectedY}`)
+                                .then(r => r.json())
+                                .then(resp => {
+                                    if (!resp.success) {
+                                        // Rollback: best-effort (refresh recommended on error)
+                                        // For simplicity, we won't try to fully rollback complex states.
+                                        console.warn('Server rejected move:', resp.error);
+                                    }
+                                })
+                                .catch(err => console.warn('Place stone network error', err));
+                         });
+                     }
+                     const cycleBtn = document.getElementById('cyclePending');
+                     if (cycleBtn) {
+                         cycleBtn.addEventListener('click', function() {
+                             // Compute next pending selection for current player without reload
+                             if (!currentPlayer) return;
+                             const pending = [];
+                             Object.keys(stonesData).forEach((key) => {
+                                 const s = stonesData[key];
+                                 if (s["player_name"] === currentPlayer && s["status"] === 'Pending') {
+                                     const parts = key.split(' ');
+                                     pending.push({
+                                         x: parseInt(parts[0], 10),
+                                         y: parseInt(parts[1], 10),
+                                         since: Number(s["last_status_change_time"]) || 0
+                                     });
+                                 }
+                             });
+                             if (pending.length === 0) {
+                                 // No pending stones; keep selection
+                                 return;
+                             }
+                             // Determine base time from current selection if it's your pending
+                             let base = 0;
+                             const curKey = `${selectedX} ${selectedY}`;
+                             const curStone = stonesData[curKey];
+                             if (curStone && curStone["player_name"] === currentPlayer && curStone["status"] === 'Pending') {
+                                 base = Number(curStone["last_status_change_time"]) || 0;
+                             }
+                             const younger = pending.filter(p => p.since > base).sort((a,b)=>a.since-b.since);
+                             let next;
+                             if (younger.length > 0) {
+                                 next = younger[0];
+                             } else {
+                                 // Oldest overall
+                                 next = pending.sort((a,b)=>a.since-b.since)[0];
+                             }
+                             applySelection(next.x, next.y);
+                             if (typeof centerOnWorldCoord === 'function') {
+                                 centerOnWorldCoord(next.x, next.y);
+                             }
+                         });
+                     }
+                 })();
+             </script>
     </body>
 </html>
