@@ -252,11 +252,15 @@ def viewer():
     # We need to pass the player names and score for each stone to the client as well.
     # CODESMELL
     player_names = {}
+    player_scores = {}
     for coords in stone_dict:
-        # Perform cacheing so we don't have to access the database multiple times per player.
-        if stone_dict[coords]["player"] not in player_names:
-            player_names[stone_dict[coords]["player"]] = user_db.get_user_info(stone_dict[coords]["player"], "username")
-        stone_dict[coords]["player_name"] = player_names[stone_dict[coords]["player"]]
+        # Perform caching so we don't have to access the database multiple times per player.
+        player_id = stone_dict[coords]["player"]
+        if player_id not in player_names:
+            player_names[player_id] = user_db.get_user_info(player_id, "username")[0]
+            player_scores[player_id] = stone_db.player_score(player_id)
+        stone_dict[coords]["player_name"] = player_names[player_id]
+        stone_dict[coords]["player_score"] = player_scores[player_id]
 
     # Make the indices comprehensible to Javascript (it can't accept tuples for keys).
     stones = {" ".join(map(str, stone)): stone_dict[stone] for stone in stone_dict}

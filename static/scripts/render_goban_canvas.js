@@ -27,6 +27,12 @@ var cursor_y_initial = null;
 
 var panning = false;
 
+// Tooltip and hover state
+var tooltipEl = document.getElementById("stone-tooltip");
+var visibleStones = []; // [{key, cx, cy, rPx, player_name, player_score}]
+var playerColorMap = null; // {player_name: color}
+var currentPlayerName = null;
+
 canvas.addEventListener("mousedown", (e) => {
     // Start cursor tracker.
     cursor_x_initial = mouseX(e);
@@ -38,6 +44,18 @@ canvas.addEventListener("mousemove", (e) => {
     if (panning) {
         _x_offset = cursor_x_initial - mouseX(e);
         _y_offset = cursor_y_initial - mouseY(e);
+        hideTooltip();
+        return;
+    }
+
+    // Hover detection using last rendered visible stones
+    const mx = mouseX(e);
+    const my = mouseY(e);
+    const hovered = findHoveredStone(mx, my);
+    if (hovered) {
+        showTooltip(`${hovered.player_name} — ${Number(hovered.player_score).toLocaleString()} stones`, mx + 12, my + 12);
+    } else {
+        hideTooltip();
     }
 });
 
@@ -48,6 +66,7 @@ canvas.addEventListener("mousemove", (e) => {
         _x_offset = 0;
         _y_offset = 0;
         panning = false;
+        hideTooltip();
     });
 });
 
@@ -63,6 +82,33 @@ canvas.addEventListener("wheel", (e) => {
     _y += cursor_world_coords[1] - new_cursor_world_coords[1];
 });
 
+function hideTooltip() {
+    if (tooltipEl) tooltipEl.style.display = "none";
+}
+
+function showTooltip(text, xPx, yPx) {
+    if (!tooltipEl) return;
+    tooltipEl.textContent = text;
+    tooltipEl.style.left = `${xPx}px`;
+    tooltipEl.style.top = `${yPx}px`;
+    tooltipEl.style.display = "block";
+}
+
+function findHoveredStone(mx, my) {
+    let winner = null;
+    let bestDist2 = Infinity;
+    for (let i = 0; i < visibleStones.length; i++) {
+        const s = visibleStones[i];
+        const dx = mx - s.cx;
+        const dy = my - s.cy;
+        const dist2 = dx * dx + dy * dy;
+        if (dist2 <= s.rPx * s.rPx && dist2 < bestDist2) {
+            bestDist2 = dist2;
+            winner = s;
+        }
+    }
+    return winner;
+}
 
 function x() {
     // Returns the x coordinate of the viewport in world coordinates.
@@ -136,29 +182,91 @@ function drawGoban() {
     }
 }
 
+function buildPlayerColorMap(stones, player) {
+    // Build unique players and scores, excluding the current player
+    const nameToScore = new Map();
+    Object.keys(stones).forEach((key) => {
+        const s = stones[key];
+        if (s["player_name"] === player) return; // reserve black for current player
+        if (!nameToScore.has(s["player_name"])) {
+            nameToScore.set(s["player_name"], s["player_score"] ?? 0);
+        }
+    });
+
+    // Sort players by score descending
+    const entries = Array.from(nameToScore.entries()).sort((a, b) => (b[1] - a[1]));
+
+    const map = {};
+    const safePalette = Array.isArray(color_code) ? color_code.filter((_, idx) => idx > 1) : ["#008941", "#006FA6", "#A30059"];
+    for (let i = 0; i < entries.length; i++) {
+        map[entries[i][0]] = safePalette[i % safePalette.length];
+    }
+    return map;
+}
+
 function drawStones(stones, player) {
+    if (playerColorMap === null) {
+        currentPlayerName = player;
+        try {
+            playerColorMap = buildPlayerColorMap(stones, player);
+        } catch (e) {
+            // If color_code is not available for some reason, fallback to simple white
+            playerColorMap = {};
+        }
+    }
+
+    visibleStones = [];
+
     Object.keys(stones).forEach((key) => {
         var coords = key.split(" ");
         var canvas_coords = world2Canvas(coords[0], coords[1]);
+        const cx = canvas_coords[0];
+        const cy = canvas_coords[1];
+        const rPx = stoneRadius * rulingSpacing;
+
+        // Cull stones far outside the viewport for hover testing list
+        if (cx < -rPx || cy < -rPx || cx > canvas.width + rPx || cy > canvas.height + rPx) {
+            // Still skip drawing? We can also skip rendering to save draw time
+            return;
+        }
+
         ctx.beginPath();
         ctx.arc(
-            canvas_coords[0],
-            canvas_coords[1],
-            stoneRadius * rulingSpacing,
+            cx,
+            cy,
+            rPx,
             0,
             2 * Math.PI
         );
-        ctx.fillStyle = player == stones[key]["player_name"] ? "black" : "white";
+        // Color logic: your stones black; others from palette mapping
+        let fill = "white";
+        if (player && player === stones[key]["player_name"]) {
+            fill = "black";
+        } else {
+            const pname = stones[key]["player_name"];
+            fill = (playerColorMap && playerColorMap[pname]) ? playerColorMap[pname] : "white";
+        }
+        ctx.fillStyle = fill;
         ctx.strokeStyle = "black";
         ctx.lineWidth = stoneOutlineWidth * rulingSpacing;
         ctx.fill();
         ctx.stroke();
 
+        // Save for hover detection
+        visibleStones.push({
+            key: key,
+            cx: cx,
+            cy: cy,
+            rPx: rPx,
+            player_name: String(stones[key]["player_name"]),
+            player_score: stones[key]["player_score"] ?? 0
+        });
+
         if (stones[key]["status"] != "Unlocked") {
             ctx.beginPath();
             ctx.arc(
-                canvas_coords[0],
-                canvas_coords[1],
+                cx,
+                cy,
                 stoneStatusRadius * rulingSpacing,
                 0,
                 2 * Math.PI
@@ -190,5 +298,5 @@ function drawLoop(stones, player) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawGoban();
         drawStones(stones, player);
-    }, 1/drawRate);
+    }, 1000 / drawRate);
 }
