@@ -8,6 +8,7 @@ var stoneStatusRadius = 0.125; // World units.
 var stoneStatusOutlineWidth = 0.05; // World units.
 var drawRate = 60; // Hz.
 var zoomSpeed = 3; // Pixels per scroll unit.
+var initialRulingSpacing = rulingSpacing; // Remember the initial zoom level for forced pans
 
 const canvas = document.getElementById("goban");
 const ctx = canvas.getContext("2d");
@@ -51,6 +52,12 @@ window.centerOnWorldCoord = function(x, y) {
     const halfCellsY = canvas.height / (2 * rulingSpacing);
     _x = Number(x) - halfCellsX;
     _y = Number(y) - halfCellsY;
+};
+
+// Center viewport and reset zoom to the initial level
+window.centerAndResetZoom = function(x, y) {
+    rulingSpacing = initialRulingSpacing;
+    window.centerOnWorldCoord(x, y);
 };
 
 canvas.addEventListener("mousedown", (e) => {
