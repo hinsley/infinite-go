@@ -81,7 +81,7 @@ canvas.addEventListener("mousemove", (e) => {
     const hovered = findHoveredStone(mx, my);
     if (hovered) {
         // Use viewport coordinates for the fixed-position tooltip
-        showTooltip(`${hovered.player_name} — ${Number(hovered.player_score).toLocaleString()} stones`, e.clientX + 12, e.clientY + 12);
+        showTooltip(`${hovered.player_name} — ${Number(hovered.player_score).toLocaleString()} stones — ${formatTimestamp(hovered.placement_time)}`, e.clientX + 12, e.clientY + 12);
     } else {
         hideTooltip();
     }
@@ -131,6 +131,20 @@ function showTooltip(text, xPx, yPx) {
     tooltipEl.style.left = `${xPx}px`;
     tooltipEl.style.top = `${yPx}px`;
     tooltipEl.style.display = "block";
+}
+
+// Format epoch seconds to "YYYY-MM-DD HH:MM:SS" in the user's local time
+function formatTimestamp(seconds) {
+    if (seconds == null) return '';
+    const d = new Date(Number(seconds) * 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    const ss = pad(d.getSeconds());
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
 
 function findHoveredStone(mx, my) {
@@ -298,7 +312,8 @@ function drawStones(stones, player) {
             cy: cy,
             rPx: rPx,
             player_name: String(stones[key]["player_name"]),
-            player_score: stones[key]["player_score"] ?? 0
+            player_score: stones[key]["player_score"] ?? 0,
+            placement_time: stones[key]["placement_time"] ?? null
         });
 
         if (stones[key]["status"] != "Unlocked") {
