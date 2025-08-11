@@ -51,6 +51,8 @@
                 // Expose for other modules (e.g., canvas tooltip refresher)
                 window.stonesData = stonesData;
                 const currentPlayer = {% if username is not none %} "{{ username }}" {% else %} null {% endif %};
+                // Remember when this page retrieved its data; used for delta queries
+                const pageLoadEpoch = Number({{ polling_start_time }});
                 
                 /**
                  * PendingStonesIndex: cache for efficiently managing Pending stones.
@@ -490,14 +492,28 @@ if (typeof setSelectedCell === 'function') {
                             updatePendingCountdown(selectedX, selectedY);
                             rebuildLeaderboard(selectedX, selectedY);
 
-                            // Persist on server in background
+                            // Persist on server, then query for authoritative deltas since page load and refresh if any
                             fetch(`/go-json?x=${selectedX}&y=${selectedY}`)
                                 .then(r => r.json())
                                 .then(resp => {
+                                    // If server rejected the move, force a refresh to reconcile client state
                                     if (!resp.success) {
-                                        // Rollback: best-effort (refresh recommended on error)
                                         console.warn('Server rejected move:', resp.error);
+                                        const to = `/viewer?x=${selectedX}&y=${selectedY}`;
+                                        location.assign(to);
+                                        return;
                                     }
+                                    // Query for efficient change log since this viewer loaded
+                                    const since = isFinite(pageLoadEpoch) ? pageLoadEpoch : 0;
+                                    return fetch(`/board-changes?since=${since}`)
+                                        .then(r => r.json())
+                                        .then(delta => {
+                                            if (delta && Array.isArray(delta.events) && delta.events.length > 0) {
+                                                // Force a full reload to refresh total board state, not just local optimism
+                                                const to = `/viewer?x=${selectedX}&y=${selectedY}`;
+                                                location.assign(to);
+                                            }
+                                        });
                                 })
                                 .catch(err => console.warn('Place stone network error', err));
                          });
