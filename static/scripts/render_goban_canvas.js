@@ -33,6 +33,13 @@ var visibleStones = []; // [{key, cx, cy, rPx, player_name, player_score}]
 var playerColorMap = null; // {player_name: color}
 var currentPlayerName = null;
 
+// Selected cell highlight
+var selectedCell = { x: null, y: null };
+window.setSelectedCell = function(x, y) {
+    selectedCell.x = Number(x);
+    selectedCell.y = Number(y);
+};
+
 canvas.addEventListener("mousedown", (e) => {
     // Start cursor tracker.
     cursor_x_initial = mouseX(e);
@@ -73,6 +80,9 @@ canvas.addEventListener("mousemove", (e) => {
 
 // Zoom event.
 canvas.addEventListener("wheel", (e) => {
+    // Prevent page scrolling while zooming inside the board view
+    e.preventDefault();
+
     // Zoom around the cursor.
     // Store the current cursor position in world coordinates.
     var cursor_world_coords = canvas2World(mouseX(e), mouseY(e));
@@ -81,7 +91,7 @@ canvas.addEventListener("wheel", (e) => {
     var new_cursor_world_coords = canvas2World(mouseX(e), mouseY(e));
     _x += cursor_world_coords[0] - new_cursor_world_coords[0];
     _y += cursor_world_coords[1] - new_cursor_world_coords[1];
-});
+}, { passive: false });
 
 function hideTooltip() {
     if (tooltipEl) tooltipEl.style.display = "none";
@@ -281,6 +291,14 @@ function drawStones(stones, player) {
     });
 }
 
+function drawSelection() {
+    if (selectedCell.x === null || selectedCell.y === null) return;
+    const topLeft = world2Canvas(selectedCell.x, selectedCell.y + 1);
+    // Grey square overlay of one grid cell, similar to index cursor overlay
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(topLeft[0], topLeft[1], rulingSpacing, -rulingSpacing);
+}
+
 function world2Canvas(world_x, world_y) {
     world_canvas_coords = canvas2World(0, 0);
     return [
@@ -299,5 +317,6 @@ function drawLoop(stones, player) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawGoban();
         drawStones(stones, player);
+        drawSelection();
     }, 1000 / drawRate);
 }

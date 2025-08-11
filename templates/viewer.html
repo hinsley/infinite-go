@@ -25,17 +25,13 @@
                 X: {{ cursor[0] }}, Y: {{ cursor[1] }}
             </div>
             
-            {% if "%s %s" % (cursor[0], cursor[1]) in stones and stones["%s %s" % (cursor[0], cursor[1])]["status"] == "Pending" %}
-            <div id="pending-countdown">This stone is pending.</div>
-            <script src="{{ url_for('static', filename='scripts/pending_countdown.js') }}"></script>
-            <script>initiatePendingCountdown({{ stones["%s %s" % (cursor[0], cursor[1])]["last_status_change_time"] }});</script>
-            {% endif %}
+            <div id="pending-countdown"></div>
 
             {% if username is not none %}
                 <br>
                 
-                <button id="placeStone" onClick="location = '{{ url_for('go', x=cursor[0], y=cursor[1]) }}';">Place stone</button>
-                <button id="cyclePending" onClick="location = '{{ url_for('cycle_pending', current_x=cursor[0], current_y=cursor[1]) }}';">Cycle pending stones</button>
+                <button id="placeStone">Place stone</button>
+                <button id="cyclePending">Cycle pending stones</button>
                 <script src="{{ url_for('static', filename='scripts/new_pending_poll.js') }}"></script>
                 <script>newPendingPoll('{{ url_for('new_pending_poll', player=session["user"], polling_start_time=polling_start_time) | safe }}');</script>
             {% endif %}
@@ -50,10 +46,28 @@
             <script>
                 // Make stones data reusable across features
                 const stonesData = {{ stones | tojson }};
-                const cursorPos = [BigInt({{ cursor[0] }}), BigInt({{ cursor[1] }})];
                 const currentPlayer = {% if username is not none %} "{{ username }}" {% else %} null {% endif %};
+                
+                // Selection state
+                let selectedX = Number({{ cursor[0] }});
+                let selectedY = Number({{ cursor[1] }});
+                
+                // Initialize canvas draw loop and selected cell highlight
+                drawLoop(stonesData, currentPlayer);
+                if (typeof setSelectedCell === 'function') {
+                    setSelectedCell(selectedX, selectedY);
+                }
 
-                // Compute local 13x13 region around cursor (matching index)
+                function updateUrl(x, y) {
+                    const newUrl = `${location.pathname}?x=${x}&y=${y}`;
+                    history.replaceState({}, '', newUrl);
+                }
+
+                function updateCursorInfo(x, y) {
+                    const el = document.getElementById('cursor-info');
+                    if (el) el.textContent = `X: ${x}, Y: ${y}`;
+                }
+
                 function localRegionStones(allStones, cx, cy) {
                     const out = {};
                     Object.keys(allStones).forEach((key) => {
@@ -66,26 +80,88 @@
                     });
                     return out;
                 }
-                const cxNum = Number(cursorPos[0]);
-                const cyNum = Number(cursorPos[1]);
-                const regionStones = localRegionStones(stonesData, cxNum, cyNum);
 
-                // Draw loop and interactions
-                drawLoop(stonesData, currentPlayer);
+                function updatePlaceStoneDisabled(x, y) {
+                    const btn = document.getElementById('placeStone');
+                    if (!btn) return;
+                    const regionStones = localRegionStones(stonesData, x, y);
+                    let validMove = Object.keys(regionStones).length > 0;
+                    Object.keys(regionStones).forEach((coords) => {
+                        const s = regionStones[coords];
+                        if (
+                            `${x} ${y}` === coords ||
+                            (s["status"] === "Locked" && s["player_name"] === currentPlayer) ||
+                            (s["status"] === "Pending" && s["player_name"] !== currentPlayer)
+                        ) {
+                            validMove = false;
+                        }
+                    });
+                    if (!validMove) {
+                        btn.setAttribute('disabled', true);
+                    } else {
+                        btn.removeAttribute('disabled');
+                    }
+                }
 
-                // Click-to-select: compute nearest integer world coords and update GET params on /viewer
+                let countdownIntervalId = null;
+                function updatePendingCountdown(x, y) {
+                    const el = document.getElementById('pending-countdown');
+                    if (!el) return;
+                    if (countdownIntervalId !== null) {
+                        clearInterval(countdownIntervalId);
+                        countdownIntervalId = null;
+                    }
+                    const key = `${x} ${y}`;
+                    const stone = stonesData[key];
+                    if (!stone || stone["status"] !== 'Pending') {
+                        el.textContent = '';
+                        return;
+                    }
+                    const pendingSince = Number(stone["last_status_change_time"]);
+                    function epoch() { return Date.now() / 1000; }
+                    function tick() {
+                        const remaining = Math.floor(pendingSince + 86400 - epoch());
+                        if (remaining > 0) {
+                            const sec = remaining % 60;
+                            const min = Math.floor((remaining % 3600) / 60);
+                            const hrs = Math.floor(remaining / 3600);
+                            el.textContent = `${hrs.toString().padStart(2,'0')}:${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')} remaining until stone is unlocked.`;
+                        } else {
+                            el.textContent = 'Stone unlocked; refresh to update.';
+                        }
+                    }
+                    tick();
+                    countdownIntervalId = setInterval(tick, 1000);
+                }
+
+                function applySelection(x, y) {
+                    selectedX = x; selectedY = y;
+                    if (typeof setSelectedCell === 'function') setSelectedCell(x, y);
+                    updateUrl(x, y);
+                    updateCursorInfo(x, y);
+                    updatePlaceStoneDisabled(x, y);
+                    updatePendingCountdown(x, y);
+                }
+
+                // Initial UI state based on server-provided cursor
+                applySelection(selectedX, selectedY);
+
+                // Click-to-select: highlight cell and update URL without reload
                 (function() {
                     const canvasEl = document.getElementById('goban');
                     canvasEl.addEventListener('click', function(e) {
                         const world = canvas2World(mouseX(e), mouseY(e));
                         const selX = Math.round(world[0]);
                         const selY = Math.round(world[1]);
-                        location = '/viewer?x=' + selX + '&y=' + selY;
+                        applySelection(selX, selY);
                     });
                 })();
 
-                // Build color legend (same method as index) using local region stones
+                // Build color legend (same method as index) using local region stones near initial cursor
                 (function() {
+                    const cxNum = Number(selectedX);
+                    const cyNum = Number(selectedY);
+                    const regionStones = localRegionStones(stonesData, cxNum, cyNum);
                     var player_scores = [];
                     var player_names = [];
                     Object.values(regionStones).forEach((stone) => {
@@ -109,21 +185,52 @@
                     }
                 })();
 
-                // Disable Place stone when invalid (same logic as index) using local region stones
+                // Wire up buttons
                 (function() {
-                    var validMove = Object.keys(regionStones).length > 0;
-                    Object.keys(regionStones).forEach((coords) => {
-                        if (
-                            (cursorPos[0] + " " + cursorPos[1]) == coords ||
-                            (regionStones[coords]["status"] == "Locked" && regionStones[coords]["player_name"] == currentPlayer) ||
-                            (regionStones[coords]["status"] == "Pending" && regionStones[coords]["player_name"] != currentPlayer)
-                        ) {
-                            validMove = false;
-                        }
-                    });
-                    if (!validMove) {
-                        var btn = document.getElementById("placeStone");
-                        if (btn) btn.setAttribute("disabled", true);
+                    const placeBtn = document.getElementById('placeStone');
+                    if (placeBtn) {
+                        placeBtn.addEventListener('click', function() {
+                            location = `/go?x=${selectedX}&y=${selectedY}`;
+                        });
+                    }
+                    const cycleBtn = document.getElementById('cyclePending');
+                    if (cycleBtn) {
+                        cycleBtn.addEventListener('click', function() {
+                            // Compute next pending selection for current player without reload
+                            if (!currentPlayer) return;
+                            const pending = [];
+                            Object.keys(stonesData).forEach((key) => {
+                                const s = stonesData[key];
+                                if (s["player_name"] === currentPlayer && s["status"] === 'Pending') {
+                                    const parts = key.split(' ');
+                                    pending.push({
+                                        x: parseInt(parts[0], 10),
+                                        y: parseInt(parts[1], 10),
+                                        since: Number(s["last_status_change_time"]) || 0
+                                    });
+                                }
+                            });
+                            if (pending.length === 0) {
+                                // No pending stones; keep selection
+                                return;
+                            }
+                            // Determine base time from current selection if it's your pending
+                            let base = 0;
+                            const curKey = `${selectedX} ${selectedY}`;
+                            const curStone = stonesData[curKey];
+                            if (curStone && curStone["player_name"] === currentPlayer && curStone["status"] === 'Pending') {
+                                base = Number(curStone["last_status_change_time"]) || 0;
+                            }
+                            const younger = pending.filter(p => p.since > base).sort((a,b)=>a.since-b.since);
+                            let next;
+                            if (younger.length > 0) {
+                                next = younger[0];
+                            } else {
+                                // Oldest overall
+                                next = pending.sort((a,b)=>a.since-b.since)[0];
+                            }
+                            applySelection(next.x, next.y);
+                        });
                     }
                 })();
             </script>
