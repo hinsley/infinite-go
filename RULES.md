@@ -30,6 +30,7 @@ These constraints are in addition to normal Go legality; after placement, captur
 After a legal placement:
 - Opponent groups with no liberties are removed (standard capture).
 - If no captures were made, the just-played stone’s own group may be removed if it has no liberties (**suicide is allowed**).
+- As in typical Go, a group that secures two separate eyes is unconditionally alive; attempts to fill an eye without capture self-remove due to suicide and leave the group intact.
 
 ### Practical consequences vs. normal Go
 - **No turns**: Anyone can play at any time; the locality system creates de facto “turns” within each 13×13 neighborhood.
