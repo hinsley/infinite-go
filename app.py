@@ -87,6 +87,32 @@ def go():
     # TODO: Replace with `redirect` once that works.
     return render_template("redirect.html", to=url_for("index", x=x, y=y))
 
+@app.route("/go-json", methods=["GET"])
+def go_json():
+    """
+    JSON variant of stone placement for the interactive viewer.
+    Performs the same validation, status evolution, placement, and capture resolution,
+    returning a JSON response so the client can update without a full page reload.
+    """
+    try:
+        x = int(request.args.get("x"))
+        y = int(request.args.get("y"))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Invalid coordinates"}), 400
+
+    if "user" not in session:
+        return jsonify({"success": False, "error": "Not authenticated"}), 401
+
+    if move_validation.check_valid_move(session["user"], (x, y)):
+        local_stones = stone_db.retrieve_region(x, y)
+        for stone_pos in local_stones:
+            move_validation.evolve_status(stone_pos)
+        stone_db.place_stone(session["user"], x, y)
+        captures.perform_captures((x, y))
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "error": "Invalid move"}), 200
+
 @app.route("/login")
 def login():
     """
