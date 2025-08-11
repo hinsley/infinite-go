@@ -247,6 +247,12 @@ def viewer():
     """
     Full-board viewer.
     """
+    # Selected cursor coordinates from GET params (default 0,0)
+    try:
+        cursor = [int(request.args["x"]), int(request.args["y"])]
+    except KeyError:
+        cursor = [0, 0]
+
     stone_dict = stone_db.retrieve()
 
     # We need to pass the player names and score for each stone to the client as well.
@@ -265,7 +271,11 @@ def viewer():
     # Make the indices comprehensible to Javascript (it can't accept tuples for keys).
     stones = {" ".join(map(str, stone)): stone_dict[stone] for stone in stone_dict}
 
-    return render_template("viewer.html",
-                           username=(user_db.get_user_info(session["user"], "username")[0] if "user" in session else None),
-                           score=f"{stone_db.player_score(session['user']):,}" if "user" in session else None,
-                           stones=stones)
+    return render_template(
+        "viewer.html",
+        username=(user_db.get_user_info(session["user"], "username")[0] if "user" in session else None),
+        score=f"{stone_db.player_score(session['user']):,}" if "user" in session else None,
+        cursor=cursor,
+        stones=stones,
+        polling_start_time=int(time.time()),
+    )
