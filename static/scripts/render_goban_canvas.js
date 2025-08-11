@@ -55,6 +55,7 @@ let initialPinchDistance = null;
 let initialPinchCenterCanvas = null; // [x, y] in canvas pixels
 let initialPinchWorld = null; // [x, y] in world coords under pinch center at pinch start
 let pinchBaseRulingSpacing = null;
+let pinchZooming = false;
 
 // Tooltip and hover state
 var tooltipEl = document.getElementById("stone-tooltip");
@@ -196,6 +197,7 @@ canvas.addEventListener('pointerdown', (e) => {
             x() + initialPinchCenterCanvas[0] / rulingSpacing,
             y() + initialPinchCenterCanvas[1] / rulingSpacing
         ];
+        pinchZooming = true;
         hideTooltip();
     }
 }, { passive: false });
@@ -266,7 +268,10 @@ function endPointer(e) {
     }
 
     // If it was a tap (no pan), perform a selection explicitly and suppress the synthetic click
-    if (e.pointerId === panPointerId && !wasPanning) {
+    if (pinchZooming) {
+        // Do not treat release after pinch as a tap selection
+        window.suppressNextClickSelection = true;
+    } else if (e.pointerId === panPointerId && !wasPanning) {
         window.suppressNextClickSelection = true;
         const [cx, cy] = getCanvasXYFromClient(e.clientX, e.clientY);
         const world = canvas2World(cx, cy);
@@ -286,6 +291,7 @@ function endPointer(e) {
         initialPinchCenterCanvas = null;
         initialPinchWorld = null;
         pinchBaseRulingSpacing = null;
+        pinchZooming = false;
         panPointerId = null;
         hideTooltip();
     } else if (activePointers.size === 1) {
