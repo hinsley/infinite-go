@@ -75,6 +75,36 @@
                 function removeStoneAt(x, y) { delete stonesData[getStoneKey(x, y)]; }
                 function neighborsOf(x, y) { return [ [x-1, y], [x, y+1], [x+1, y], [x, y-1] ]; }
 
+                // Live per-player global stone counts; initialize from server-provided player_score
+                const playerScores = new Map();
+                (function initPlayerScores() {
+                    Object.keys(stonesData).forEach((key) => {
+                        const s = stonesData[key];
+                        const name = String(s["player_name"]);
+                        if (!playerScores.has(name)) {
+                            // `player_score` provided is the global count for that player
+                            playerScores.set(name, Number(s["player_score"]) || 0);
+                        }
+                    });
+                })();
+
+                function setAllStonesScoreForPlayer(playerName, newScore) {
+                    Object.keys(stonesData).forEach((key) => {
+                        const s = stonesData[key];
+                        if (String(s["player_name"]) === playerName) {
+                            s["player_score"] = newScore;
+                        }
+                    });
+                }
+
+                function updatePlayerScore(playerName, delta) {
+                    if (!playerName || !Number.isFinite(delta) || delta === 0) return;
+                    const cur = playerScores.get(playerName) ?? 0;
+                    const next = Math.max(0, cur + delta);
+                    playerScores.set(playerName, next);
+                    setAllStonesScoreForPlayer(playerName, next);
+                }
+
                 function localRegionStones(allStones, cx, cy) {
                     const out = {};
                     Object.keys(allStones).forEach((key) => {
@@ -188,9 +218,9 @@
                 }
 
                 function resolveCapturesAfterPlacement(px, py) {
-                    // Stage 1: check opponent groups adjacent to the placed stone
+                    // Stage 1: check groups adjacent to the placed point; collect per-player removals
                     const adj = neighborsOf(px, py);
-                    let removed = [];
+                    let removedCoords = [];
                     const toCheck = [];
                     for (let i = 0; i < adj.length; i++) {
                         const [ax, ay] = adj[i];
@@ -199,25 +229,29 @@
                         toCheck.push([ax, ay]);
                     }
                     const removedSet = new Set();
+                    const removedByPlayer = new Map(); // name -> count
                     for (let i = 0; i < toCheck.length; i++) {
                         const [cx, cy] = toCheck[i];
                         const res = findGroupAndCaptured(cx, cy);
                         if (res.captured) {
-                            for (const [, coords] of res.group) {
-                                const key = getStoneKey(coords[0], coords[1]);
-                                if (!removedSet.has(key)) {
-                                    removedSet.add(key);
-                                    removed.push(coords);
+                            for (const [key, coords] of res.group) {
+                                if (removedSet.has(key)) continue;
+                                removedSet.add(key);
+                                const s = getStoneAt(coords[0], coords[1]);
+                                if (s) {
+                                    const pname = String(s["player_name"]);
+                                    removedByPlayer.set(pname, (removedByPlayer.get(pname) || 0) + 1);
                                 }
+                                removedCoords.push(coords);
                             }
                         }
                     }
-                    if (removed.length > 0) {
-                        for (let i = 0; i < removed.length; i++) {
-                            const [rx, ry] = removed[i];
+                    if (removedCoords.length > 0) {
+                        for (let i = 0; i < removedCoords.length; i++) {
+                            const [rx, ry] = removedCoords[i];
                             removeStoneAt(rx, ry);
                         }
-                        return { removed, suicideRemoved: 0 };
+                        return { removedCoords, removedByPlayer, suicideRemoved: 0 };
                     }
                     // Stage 2: suicide check on the placed stone's group
                     const selfRes = findGroupAndCaptured(px, py);
@@ -227,22 +261,59 @@
                             removeStoneAt(coords[0], coords[1]);
                             count += 1;
                         }
-                        return { removed: [], suicideRemoved: count };
+                        return { removedCoords: [], removedByPlayer: new Map(), suicideRemoved: count };
                     }
-                    return { removed: [], suicideRemoved: 0 };
+                    return { removedCoords: [], removedByPlayer: new Map(), suicideRemoved: 0 };
+                }
+
+                function updateHeaderUserScoreTo(value) {
+                    if (!currentPlayer) return;
+                    const h3 = document.querySelector('h3');
+                    if (!h3) return;
+                    const html = h3.innerHTML;
+                    if (!/You have\s+([0-9,]+)/.test(html)) return;
+                    const nextStr = Number(value).toLocaleString();
+                    h3.innerHTML = html.replace(/You have\s+([0-9,]+)/, `You have ${nextStr}`);
                 }
 
                 function updateUserScoreBy(delta) {
                     if (!currentPlayer || delta === 0) return;
-                    const h3 = document.querySelector('h3');
-                    if (!h3) return;
-                    const html = h3.innerHTML;
-                    const m = html.match(/You have\s+([0-9,]+)/);
-                    if (!m) return;
-                    const current = parseInt(m[1].replace(/,/g, ''), 10);
-                    const next = Math.max(0, current + delta);
-                    const nextStr = next.toLocaleString();
-                    h3.innerHTML = html.replace(/You have\s+([0-9,]+)/, `You have ${nextStr}`);
+                    const cur = playerScores.get(currentPlayer) ?? 0;
+                    updatePlayerScore(currentPlayer, delta);
+                    updateHeaderUserScoreTo(cur + delta);
+                }
+
+                function rebuildLeaderboard(x, y) {
+                    const container = document.getElementById('color-legend');
+                    if (!container) return;
+                    // Clear existing
+                    while (container.firstChild) container.removeChild(container.firstChild);
+                    if (typeof x !== 'number' || typeof y !== 'number' || Number.isNaN(x) || Number.isNaN(y)) {
+                        return; // no selection -> empty leaderboard
+                    }
+                    const region = localRegionStones(stonesData, x, y);
+                    // Collect unique player names present in region
+                    const names = [];
+                    Object.keys(region).forEach((k) => {
+                        const pname = String(region[k]["player_name"]);
+                        if (!names.includes(pname)) names.push(pname);
+                    });
+                    if (names.length === 0) return;
+                    // Prepare arrays for sorting by global score desc
+                    const scores = names.map(n => playerScores.get(n) ?? 0);
+                    const sortedNames = refSort(names.slice(), scores).reverse();
+                    const sortedScores = scores.slice().sort((a,b)=>b-a);
+                    for (let i = 0; i < sortedNames.length; i++) {
+                        const entry = document.createElement('div');
+                        entry.setAttribute('class', 'legend-entry');
+                        const colorIcon = document.createElement('div');
+                        colorIcon.setAttribute('class', 'color-icon');
+                        colorIcon.setAttribute('style', `background-color: ${color_code[i % color_code.length]};`);
+                        entry.appendChild(colorIcon);
+                        const scoreVal = Number(sortedScores[i]).toLocaleString();
+                        entry.append(` ${sortedNames[i]} (${scoreVal})`);
+                        container.appendChild(entry);
+                    }
                 }
 
                 function applySelection(x, y) {
@@ -252,6 +323,7 @@
                     updateCursorInfo(x, y);
                     updatePlaceStoneDisabled(x, y);
                     updatePendingCountdown(x, y);
+                    rebuildLeaderboard(x, y);
                 }
  
                  // Initial UI state based on server-provided cursor
@@ -273,33 +345,8 @@
                      });
                  })();
  
-                 // Build color legend (same method as index) using local region stones near initial cursor
-                 (function() {
-                     const cxNum = Number(selectedX);
-                     const cyNum = Number(selectedY);
-                     const regionStones = localRegionStones(stonesData, cxNum, cyNum);
-                     var player_scores = [];
-                     var player_names = [];
-                     Object.values(regionStones).forEach((stone) => {
-                         if (!player_names.includes(stone["player_name"])) {
-                             player_scores.push(stone["player_score"]);
-                             player_names.push(stone["player_name"]);
-                         }
-                     });
-                     // Assign colors by relative player scores.
-                     player_names = refSort(player_names, player_scores).reverse();
-                     player_scores.sort((a, b) => b - a);
-                     for (var i = 0; i < player_names.length; i++) {
-                         var legendEntry = document.createElement("div");
-                         legendEntry.setAttribute("class", "legend-entry");
-                         var colorIcon = document.createElement("div");
-                         colorIcon.setAttribute("class", "color-icon");
-                         colorIcon.setAttribute("style", "background-color: " + color_code[i] + ";");
-                         legendEntry.appendChild(colorIcon);
-                         legendEntry.append(" " + player_names[i] + " (" + Number(player_scores[i]).toLocaleString() + ")");
-                         document.getElementById("color-legend").appendChild(legendEntry);
-                     }
-                 })();
+                 // Build color legend (leaderboard) for the active 13x13 area and keep it live
+                 rebuildLeaderboard(selectedX, selectedY);
  
                  // Wire up buttons
                  (function() {
@@ -314,22 +361,37 @@
                             // Evolve statuses in local region (pre-placement)
                             evolveStatusesAround(selectedX, selectedY);
                             // Place stone locally
+                            const nowTs = Date.now() / 1000;
                             setStoneAt(selectedX, selectedY, {
                                 player_name: currentPlayer,
+                                player_score: playerScores.get(currentPlayer) ?? 0, // provisional; will update below
                                 status: 'Locked',
-                                placement_time: Date.now() / 1000,
-                                last_status_change_time: Date.now() / 1000
+                                placement_time: nowTs,
+                                last_status_change_time: nowTs
                             });
-                            // Update UI and score optimistically
+                            // Update scores for placement
                             updateUserScoreBy(1);
+                            // Ensure the new stone carries updated score
+                            const curScore = playerScores.get(currentPlayer) ?? 0;
+                            const placed = getStoneAt(selectedX, selectedY);
+                            if (placed) placed["player_score"] = curScore;
+
                             // Resolve captures locally
                             const cap = resolveCapturesAfterPlacement(selectedX, selectedY);
+                            // Apply captured opponent deltas
+                            if (cap.removedByPlayer && cap.removedByPlayer.size > 0) {
+                                cap.removedByPlayer.forEach((cnt, pname) => {
+                                    updatePlayerScore(pname, -cnt);
+                                });
+                            }
+                            // Apply suicide net delta (if any)
                             if (cap.suicideRemoved > 0) {
                                 updateUserScoreBy(-cap.suicideRemoved);
                             }
-                            // Re-run disabled state and pending countdown
+                            // Re-run disabled state, pending countdown, and leaderboard
                             updatePlaceStoneDisabled(selectedX, selectedY);
                             updatePendingCountdown(selectedX, selectedY);
+                            rebuildLeaderboard(selectedX, selectedY);
 
                             // Persist on server in background
                             fetch(`/go-json?x=${selectedX}&y=${selectedY}`)
@@ -337,7 +399,6 @@
                                 .then(resp => {
                                     if (!resp.success) {
                                         // Rollback: best-effort (refresh recommended on error)
-                                        // For simplicity, we won't try to fully rollback complex states.
                                         console.warn('Server rejected move:', resp.error);
                                     }
                                 })
