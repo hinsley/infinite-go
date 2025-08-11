@@ -391,7 +391,9 @@ function composeTooltipTextForStone(entry) {
     if (entry.status === 'Pending') {
         const since = Number(entry.last_status_change_time) || 0;
         const unlockAt = since + 86400;
-        text += `\nUnlocks in ${remainingHms(unlockAt)}`;
+        text += `\nPending (${remainingHms(unlockAt)})`;
+    } else if (entry.status === 'Locked') {
+        text += `\nLocked`;
     }
     return text;
 }
