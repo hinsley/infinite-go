@@ -121,5 +121,6 @@ div#color-legend div.color-icon {
     padding: 4px 8px;
     border-radius: 4px;
     font-size: 12px;
+    white-space: pre-line;
     box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
