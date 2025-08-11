@@ -4,6 +4,8 @@
 
 body {
     text-align: center;
+    margin: 0;
+    overflow-x: hidden;
 }
 
 div#goban-container {
@@ -13,10 +15,10 @@ div#goban-container {
 }
 
 #goban {
-    width: 650px;
-    height: 650px;
-    display: flex;
-    flex-wrap: wrap;
+    max-width: 650px;
+    width: 100%;
+    height: auto;
+    display: block;
     outline: solid 1px black;
     background-color: #cfa570;
     /* Ensure touch interactions are handled by canvas, not the browser */
@@ -103,7 +105,8 @@ div#color-legend div.legend-entry {
     flex-direction: row;
     justify-content: center;
     align-items: center;
-    width: 650px;
+    width: 100%;
+    max-width: 650px;
 }
 
 div#color-legend div.color-icon {
