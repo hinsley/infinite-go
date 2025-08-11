@@ -13,12 +13,14 @@
             {% else %}
                 Logged in as {{ username }}. You have {{ score }} stone{{ "s" if score != "1" }}. | <a href="{{ url_for('logout') }}">Log Out</a>
             {% endif %}
-    
+
             </h3>
             <div id="goban-container">
-                <canvas id="goban" width="650" height="650"></div>
+                <canvas id="goban" width="650" height="650"></canvas>
             </div>
+            <div id="stone-tooltip" class="stone-tooltip" aria-hidden="true"></div>
 
+            <script src="{{ url_for('static', filename='scripts/color_code.js') }}"></script>
             <script src="{{ url_for('static', filename='scripts/render_goban_canvas.js') }}"></script>
             <script>
                 drawLoop({{ stones | tojson }}, {% if username is not none %} "{{ username }}" {% else %} null {% endif %});
