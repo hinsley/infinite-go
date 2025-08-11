@@ -13,16 +13,25 @@ var initialRulingSpacing = rulingSpacing; // Remember the initial zoom level for
 const canvas = document.getElementById("goban");
 const ctx = canvas.getContext("2d");
 
+// High-DPI resolution scaling (controlled via window.VIEWPORT_RESOLUTION_SCALE from viewer.html)
+const RESOLUTION_SCALE = Number(window.VIEWPORT_RESOLUTION_SCALE || 1);
+function getResolutionScale() { return RESOLUTION_SCALE; }
+function displayWidth() { return canvas.width / getResolutionScale(); }
+function displayHeight() { return canvas.height / getResolutionScale(); }
+
 // Ensure the canvas fits the viewport on mobile to avoid horizontal scrolling
 function resizeCanvasToFit() {
     const maxSize = 650;
     const viewportWidth = Math.min(window.innerWidth || maxSize, document.documentElement.clientWidth || maxSize);
     const targetSize = Math.max(200, Math.min(maxSize, Math.floor(viewportWidth))); // guard a minimum size
-    // Keep canvas backing store equal to CSS size for simple coordinate math
+    // CSS size stays logical; backing store is scaled for sharper rendering
     canvas.style.width = `${targetSize}px`;
     canvas.style.height = `${targetSize}px`;
-    canvas.width = targetSize;
-    canvas.height = targetSize;
+    const scale = getResolutionScale();
+    canvas.width = Math.floor(targetSize * scale);
+    canvas.height = Math.floor(targetSize * scale);
+    // Map logical CSS pixels to device pixels
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
     // Clamp current zoom to dynamic limits after resize
     const limits = getDynamicZoomLimits();
     rulingSpacing = clamp(rulingSpacing, limits[0], limits[1]);
@@ -75,8 +84,8 @@ window.centerOnWorldCoord = function(x, y) {
     _x_offset = 0;
     _y_offset = 0;
     // compute top-left world position so that (x,y) is centered
-    const halfCellsX = canvas.width / (2 * rulingSpacing);
-    const halfCellsY = canvas.height / (2 * rulingSpacing);
+    const halfCellsX = displayWidth() / (2 * rulingSpacing);
+    const halfCellsY = displayHeight() / (2 * rulingSpacing);
     _x = Number(x) - halfCellsX;
     _y = Number(y) - halfCellsY;
 };
@@ -140,7 +149,7 @@ canvas.addEventListener("mousemove", (e) => {
 // Compute dynamic zoom limits proportional to current canvas size relative to base 650
 function getDynamicZoomLimits() {
     const BASE_CANVAS_SIZE = 650;
-    const scale = canvas.width / BASE_CANVAS_SIZE;
+    const scale = displayWidth() / BASE_CANVAS_SIZE;
     const minSpacing = 5 * scale;
     const maxSpacing = 50 * scale;
     return [minSpacing, maxSpacing];
@@ -403,7 +412,7 @@ function clamp(val, min, max) {
 
 function drawGoban() {
     ctx.fillStyle = "#cfa570";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, displayWidth(), displayHeight());
 
     ctx.fillStyle = "black";
 
@@ -411,20 +420,20 @@ function drawGoban() {
     current_y = y();
 
     // Draw vertical rulings.
-    for (var i = 0; i < canvas.width / rulingSpacing; i++) {
+    for (var i = 0; i < displayWidth() / rulingSpacing; i++) {
         ctx.fillRect(
             (Math.ceil(current_x) - current_x + i) * rulingSpacing,
             0,
             rulingWidth * rulingSpacing,
-            canvas.height
+            displayHeight()
         );
     }
     // Draw horizontal rulings.
-    for (var i = 0; i < canvas.height / rulingSpacing; i++) {
+    for (var i = 0; i < displayHeight() / rulingSpacing; i++) {
         ctx.fillRect(
             0,
             (Math.floor(current_y) - current_y + i + 1) * rulingSpacing,
-            canvas.width,
+            displayWidth(),
             rulingWidth * rulingSpacing
         );
     }
@@ -433,8 +442,8 @@ function drawGoban() {
     // Obtain first hoshi position in world coordinates.
     var hoshi_x = Math.floor(x() / rulingsPerHoshi) * rulingsPerHoshi;
     var hoshi_y = Math.floor(y() / rulingsPerHoshi) * rulingsPerHoshi;
-    for (var i = 0; i < canvas.width / rulingSpacing / rulingsPerHoshi + 1; i++) {
-        for (var j = 0; j < canvas.height / rulingSpacing / rulingsPerHoshi + 1; j++) {
+    for (var i = 0; i < displayWidth() / rulingSpacing / rulingsPerHoshi + 1; i++) {
+        for (var j = 0; j < displayHeight() / rulingSpacing / rulingsPerHoshi + 1; j++) {
             var hoshi_center = world2Canvas(hoshi_x + i * rulingsPerHoshi, hoshi_y + j * rulingsPerHoshi);
             ctx.beginPath();
             ctx.arc(
@@ -492,7 +501,7 @@ function drawStones(stones, player) {
         const rPx = stoneRadius * rulingSpacing;
 
         // Cull stones far outside the viewport for hover testing list
-        if (cx < -rPx || cy < -rPx || cx > canvas.width + rPx || cy > canvas.height + rPx) {
+        if (cx < -rPx || cy < -rPx || cx > displayWidth() + rPx || cy > displayHeight() + rPx) {
             // Still skip drawing? We can also skip rendering to save draw time
             return;
         }
@@ -587,7 +596,7 @@ function canvas2World(canvas_x, canvas_y) {
 function drawLoop(stones, player) {
     // Draw the image on the canvas.
     setInterval(() => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, displayWidth(), displayHeight());
         drawGoban();
         // Boundary must appear above the rulings but behind stones
         drawActiveAreaBoundary();
