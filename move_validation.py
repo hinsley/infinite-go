@@ -27,6 +27,7 @@ def check_valid_move(player: int, cursor: Tuple[int, int]) -> bool:
 
     return True
 
+
 def evolve_status(stone_pos):
     """
     Performs any necessary updates on the status of a stone
@@ -39,8 +40,16 @@ def evolve_status(stone_pos):
     it is considered to be related to move validation.
     """
     stone = stone_db.get_stone(*stone_pos)
-    stone_db.update_status(stone["id"], {
+    if stone is None:
+        return
+
+    current_status = stone["status"]
+    next_status = {
         "Locked": "Pending",
         "Pending": "Unlocked",
         "Unlocked": "Unlocked",
-    }[stone["status"]])
+    }[current_status]
+
+    # Only write and log an event if the status actually changes
+    if next_status != current_status:
+        stone_db.update_status(stone["id"], next_status)
