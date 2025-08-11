@@ -106,10 +106,64 @@ def next_pending_location(user_id: int, current_coords: Optional[Tuple[int, int]
         # Return either the coords of the oldest pending stone, or None if no such stone exists.
         return next_pending_coords
 
+def _log_board_event(event_type: str, x: int, y: int, player: Optional[int], placement_time: Optional[float], last_status_change_time: Optional[float], status: Optional[str], event_time: Optional[float] = None):
+    """
+    Append a row to the board_events table capturing a mutation to the board.
+    - event_type: 'place' | 'status' | 'remove'
+    - x, y: board coordinates affected
+    - player, placement_time, last_status_change_time, status: fields from the stone row
+      (for removals, these reflect the values prior to deletion)
+    - event_time: optional explicit event timestamp (defaults to now())
+    """
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+        ts = event_time if event_time is not None else time()
+        cur.execute(
+            """
+            INSERT INTO board_events (
+                event_time, event_type, x, y, player, placement_time, last_status_change_time, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            [ts, event_type, x, y, player, placement_time, last_status_change_time, status]
+        )
+
+
+def get_events_since(since_epoch: float):
+    """
+    Retrieve all board mutation events with event_time strictly greater than `since_epoch`.
+    Returns a list of dicts sorted by ascending event_time for client consumption.
+    """
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+        cur.execute(
+            """
+            SELECT event_time, event_type, x, y, player, placement_time, last_status_change_time, status
+            FROM board_events
+            WHERE event_time > ?
+            ORDER BY event_time ASC;
+            """,
+            [since_epoch]
+        )
+        rows = cur.fetchall()
+        events = []
+        for r in rows:
+            events.append({
+                "event_time": r[0],
+                "event_type": r[1],
+                "x": r[2],
+                "y": r[3],
+                "player": r[4],
+                "placement_time": r[5],
+                "last_status_change_time": r[6],
+                "status": r[7],
+            })
+        return events
+
 def place_stone(player: int, x: int, y: int):
     """
     Places a stone by the specified player at a particular location.
     Note: This does not check if another stone already exists there.
+    Also logs a 'place' event for clients to consume as an efficient delta.
     """
     with sqlite3.connect(db_file) as db:
         cur = db.cursor()
@@ -130,6 +184,16 @@ def place_stone(player: int, x: int, y: int):
             {placement_time},
             'Locked'
         );""")
+    # Log after successful insert
+    _log_board_event(
+        event_type="place",
+        x=x,
+        y=y,
+        player=player,
+        placement_time=placement_time,
+        last_status_change_time=placement_time,
+        status="Locked",
+    )
 
 def player_score(user_id: int) -> Optional[int]:
     """
@@ -146,11 +210,23 @@ def remove_stone(x, y):
     """
     Removes any stone at the specified location.
     Note: Does not throw errors when the stone does not exist.
+    Also logs a 'remove' event including the prior stone attributes for delta queries.
     """
+    # Capture existing values to include in the event log
+    existing = get_stone(x, y)
     with sqlite3.connect(db_file) as db:
         cur = db.cursor()
-
         cur.execute("DELETE FROM stones WHERE x = ? AND y = ?;", [x, y])
+    if existing is not None:
+        _log_board_event(
+            event_type="remove",
+            x=x,
+            y=y,
+            player=existing.get("player"),
+            placement_time=existing.get("placement_time"),
+            last_status_change_time=existing.get("last_status_change_time"),
+            status=existing.get("status"),
+        )
 
 def retrieve_region(x, y):
     """
@@ -226,7 +302,7 @@ def unlock_stale_pending():
 
 def update_status(stone_id: int, status: str):
     """
-    Modifies the status of the specified stone.
+    Modifies the status of the specified stone and logs a 'status' event.
     """
     with sqlite3.connect(db_file) as db:
         cur = db.cursor()
@@ -238,6 +314,23 @@ def update_status(stone_id: int, status: str):
         WHERE
             id = ?;""",
         [status, update_time, stone_id])
+
+    # Retrieve the stone row to know its coordinates and player for event log
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+        cur.execute("SELECT x, y, player, placement_time FROM stones WHERE id = ?;", [stone_id])
+        row = cur.fetchone()
+        if row is not None:
+            _log_board_event(
+                event_type="status",
+                x=row[0],
+                y=row[1],
+                player=row[2],
+                placement_time=row[3],
+                last_status_change_time=update_time,
+                status=status,
+                event_time=update_time,
+            )
 
 # Create a `data/` directory if it does not exist.
 try:
@@ -266,3 +359,22 @@ with sqlite3.connect(db_file) as db:
 
         place_stone(1, 0, 0)
         update_status(1, "Unlocked")
+
+    # Ensure the board_events table exists for efficient delta queries
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' and name='board_events';")
+    if cur.fetchall() == []:
+        cur.execute(
+            """
+            CREATE TABLE board_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_time REAL NOT NULL,
+                event_type TEXT NOT NULL,
+                x INTEGER NOT NULL,
+                y INTEGER NOT NULL,
+                player INTEGER,
+                placement_time REAL,
+                last_status_change_time REAL,
+                status TEXT
+            );
+            """
+        )

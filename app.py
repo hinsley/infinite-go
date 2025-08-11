@@ -93,6 +93,10 @@ def go_json():
     JSON variant of stone placement for the interactive viewer.
     Performs the same validation, status evolution, placement, and capture resolution,
     returning a JSON response so the client can update without a full page reload.
+
+    Note: The viewer may subsequently call `/board-changes` to retrieve an efficient
+    list of board deltas (events) since its last retrieval time and force a reload
+    to reflect authoritative state.
     """
     try:
         x = int(request.args.get("x"))
@@ -305,3 +309,33 @@ def viewer():
         stones=stones,
         polling_start_time=int(time.time()),
     )
+
+@app.route("/board-changes", methods=["GET"])
+def board_changes():
+    """
+    Returns an efficient representation of all board mutations since the given timestamp.
+    Query params:
+      - since (float, epoch seconds): return events strictly after this time
+    Response JSON shape:
+      {
+        "since": <float>,
+        "now": <float>,
+        "events": [
+          { "event_time": float, "event_type": str, "x": int, "y": int,
+            "player": int|null, "placement_time": float|null,
+            "last_status_change_time": float|null, "status": str|null }
+        ]
+      }
+    """
+    try:
+        since = float(request.args.get("since", "0"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid 'since' parameter"}), 400
+
+    events = stone_db.get_events_since(since)
+    now_ts = time.time()
+    return jsonify({
+        "since": since,
+        "now": now_ts,
+        "events": events,
+    })
