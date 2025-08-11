@@ -4,6 +4,7 @@
         <title>Infinite Go</title>
         <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='styles/main.css') }}">
         <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
+        <script src="{{ url_for('static', filename='scripts/refSort.js') }}"></script>
     </head>
     <body>
         <h1>Infinite Go</h1>
@@ -20,10 +21,111 @@
             </div>
             <div id="stone-tooltip" class="stone-tooltip" aria-hidden="true"></div>
 
+            <div id="cursor-info">
+                X: {{ cursor[0] }}, Y: {{ cursor[1] }}
+            </div>
+            
+            {% if "%s %s" % (cursor[0], cursor[1]) in stones and stones["%s %s" % (cursor[0], cursor[1])]["status"] == "Pending" %}
+            <div id="pending-countdown">This stone is pending.</div>
+            <script src="{{ url_for('static', filename='scripts/pending_countdown.js') }}"></script>
+            <script>initiatePendingCountdown({{ stones["%s %s" % (cursor[0], cursor[1])]["last_status_change_time"] }});</script>
+            {% endif %}
+
+            {% if username is not none %}
+                <br>
+                
+                <button id="placeStone" onClick="location = '{{ url_for('go', x=cursor[0], y=cursor[1]) }}';">Place stone</button>
+                <button id="cyclePending" onClick="location = '{{ url_for('cycle_pending', current_x=cursor[0], current_y=cursor[1]) }}';">Cycle pending stones</button>
+                <script src="{{ url_for('static', filename='scripts/new_pending_poll.js') }}"></script>
+                <script>newPendingPoll('{{ url_for('new_pending_poll', player=session["user"], polling_start_time=polling_start_time) | safe }}');</script>
+            {% endif %}
+            <div id="color-legend"></div>
+
+            <h4>
+                <a href="https://github.com/hinsley/infinite-go">GitHub</a> | <a href="https://discord.gg/dzhBtPZbEz">Discord</a>
+            </h4>
+
             <script src="{{ url_for('static', filename='scripts/color_code.js') }}"></script>
             <script src="{{ url_for('static', filename='scripts/render_goban_canvas.js') }}"></script>
             <script>
-                drawLoop({{ stones | tojson }}, {% if username is not none %} "{{ username }}" {% else %} null {% endif %});
+                // Make stones data reusable across features
+                const stonesData = {{ stones | tojson }};
+                const cursorPos = [BigInt({{ cursor[0] }}), BigInt({{ cursor[1] }})];
+                const currentPlayer = {% if username is not none %} "{{ username }}" {% else %} null {% endif %};
+
+                // Compute local 13x13 region around cursor (matching index)
+                function localRegionStones(allStones, cx, cy) {
+                    const out = {};
+                    Object.keys(allStones).forEach((key) => {
+                        const parts = key.split(" ");
+                        const sx = parseInt(parts[0], 10);
+                        const sy = parseInt(parts[1], 10);
+                        if (Math.abs(sx - cx) <= 6 && Math.abs(sy - cy) <= 6) {
+                            out[key] = allStones[key];
+                        }
+                    });
+                    return out;
+                }
+                const cxNum = Number(cursorPos[0]);
+                const cyNum = Number(cursorPos[1]);
+                const regionStones = localRegionStones(stonesData, cxNum, cyNum);
+
+                // Draw loop and interactions
+                drawLoop(stonesData, currentPlayer);
+
+                // Click-to-select: compute nearest integer world coords and update GET params on /viewer
+                (function() {
+                    const canvasEl = document.getElementById('goban');
+                    canvasEl.addEventListener('click', function(e) {
+                        const world = canvas2World(mouseX(e), mouseY(e));
+                        const selX = Math.round(world[0]);
+                        const selY = Math.round(world[1]);
+                        location = '/viewer?x=' + selX + '&y=' + selY;
+                    });
+                })();
+
+                // Build color legend (same method as index) using local region stones
+                (function() {
+                    var player_scores = [];
+                    var player_names = [];
+                    Object.values(regionStones).forEach((stone) => {
+                        if (!player_names.includes(stone["player_name"])) {
+                            player_scores.push(stone["player_score"]);
+                            player_names.push(stone["player_name"]);
+                        }
+                    });
+                    // Assign colors by relative player scores.
+                    player_names = refSort(player_names, player_scores).reverse();
+                    player_scores.sort((a, b) => b - a);
+                    for (var i = 0; i < player_names.length; i++) {
+                        var legendEntry = document.createElement("div");
+                        legendEntry.setAttribute("class", "legend-entry");
+                        var colorIcon = document.createElement("div");
+                        colorIcon.setAttribute("class", "color-icon");
+                        colorIcon.setAttribute("style", "background-color: " + color_code[i] + ";");
+                        legendEntry.appendChild(colorIcon);
+                        legendEntry.append(" " + player_names[i] + " (" + Number(player_scores[i]).toLocaleString() + ")");
+                        document.getElementById("color-legend").appendChild(legendEntry);
+                    }
+                })();
+
+                // Disable Place stone when invalid (same logic as index) using local region stones
+                (function() {
+                    var validMove = Object.keys(regionStones).length > 0;
+                    Object.keys(regionStones).forEach((coords) => {
+                        if (
+                            (cursorPos[0] + " " + cursorPos[1]) == coords ||
+                            (regionStones[coords]["status"] == "Locked" && regionStones[coords]["player_name"] == currentPlayer) ||
+                            (regionStones[coords]["status"] == "Pending" && regionStones[coords]["player_name"] != currentPlayer)
+                        ) {
+                            validMove = false;
+                        }
+                    });
+                    if (!validMove) {
+                        var btn = document.getElementById("placeStone");
+                        if (btn) btn.setAttribute("disabled", true);
+                    }
+                })();
             </script>
     </body>
 </html>
