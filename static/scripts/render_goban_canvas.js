@@ -23,6 +23,9 @@ function resizeCanvasToFit() {
     canvas.style.height = `${targetSize}px`;
     canvas.width = targetSize;
     canvas.height = targetSize;
+    // Clamp current zoom to dynamic limits after resize
+    const limits = getDynamicZoomLimits();
+    rulingSpacing = clamp(rulingSpacing, limits[0], limits[1]);
 }
 resizeCanvasToFit();
 window.addEventListener('resize', resizeCanvasToFit);
@@ -79,7 +82,9 @@ window.centerOnWorldCoord = function(x, y) {
 
 // Center viewport and reset zoom to the initial level
 window.centerAndResetZoom = function(x, y) {
-    rulingSpacing = initialRulingSpacing;
+    // Reset to initial but clamp to dynamic range for current canvas size
+    const limits = getDynamicZoomLimits();
+    rulingSpacing = clamp(initialRulingSpacing, limits[0], limits[1]);
     window.centerOnWorldCoord(x, y);
 };
 
@@ -106,7 +111,7 @@ canvas.addEventListener("mousemove", (e) => {
         // Use viewport coordinates for the fixed-position tooltip
         const scoreStr = Number(hovered.player_score).toLocaleString();
         const tooltipText = `${hovered.player_name} (${scoreStr})\n${formatTimestamp(hovered.placement_time)}`;
-        showTooltip(tooltipText, e.clientX + 12, e.clientY + 12);
+        showTooltip(tooltipText, e.clientX, e.clientY, hovered.rPx);
     } else {
         hideTooltip();
     }
@@ -131,6 +136,15 @@ canvas.addEventListener("mousemove", (e) => {
     });
 });
 
+// Compute dynamic zoom limits proportional to current canvas size relative to base 650
+function getDynamicZoomLimits() {
+    const BASE_CANVAS_SIZE = 650;
+    const scale = canvas.width / BASE_CANVAS_SIZE;
+    const minSpacing = 5 * scale;
+    const maxSpacing = 50 * scale;
+    return [minSpacing, maxSpacing];
+}
+
 // Zoom event.
 canvas.addEventListener("wheel", (e) => {
     // Prevent page scrolling while zooming inside the board view
@@ -139,7 +153,8 @@ canvas.addEventListener("wheel", (e) => {
     // Zoom around the cursor.
     // Store the current cursor position in world coordinates.
     var cursor_world_coords = canvas2World(mouseX(e), mouseY(e));
-    rulingSpacing = clamp(rulingSpacing - (e.deltaY / Math.abs(e.deltaY)) * zoomSpeed, 5, 50);
+    const limits = getDynamicZoomLimits();
+    rulingSpacing = clamp(rulingSpacing - (e.deltaY / Math.abs(e.deltaY)) * zoomSpeed, limits[0], limits[1]);
     // Move the viewport to restore the cursor position.
     var new_cursor_world_coords = canvas2World(mouseX(e), mouseY(e));
     _x += cursor_world_coords[0] - new_cursor_world_coords[0];
@@ -199,7 +214,8 @@ canvas.addEventListener('pointermove', (e) => {
         const dist = Math.hypot(c2x - c1x, c2y - c1y);
         const center = [(c1x + c2x) / 2, (c1y + c2y) / 2];
         const scale = dist / (initialPinchDistance || 1);
-        const newSpacing = clamp(pinchBaseRulingSpacing * scale, 5, 50);
+        const limits = getDynamicZoomLimits();
+        const newSpacing = clamp(pinchBaseRulingSpacing * scale, limits[0], limits[1]);
 
         // Update zoom and adjust viewport to keep the world under the pinch center stable
         rulingSpacing = newSpacing;
@@ -233,8 +249,11 @@ function endPointer(e) {
     if (!activePointers.has(e.pointerId)) return;
     e.preventDefault();
 
+    // Track whether we were panning before resetting state
+    const wasPanning = panning && e.pointerId === panPointerId;
+
     // If releasing after a drag, mark to suppress the following click selection
-    if (panning && e.pointerId === panPointerId) {
+    if (wasPanning) {
         const dragDistance = Math.hypot(_x_offset, _y_offset);
         if (dragDistance > 3) {
             window.suppressNextClickSelection = true;
@@ -247,7 +266,7 @@ function endPointer(e) {
     }
 
     // If it was a tap (no pan), perform a selection explicitly and suppress the synthetic click
-    if (e.pointerId === panPointerId && !panning) {
+    if (e.pointerId === panPointerId && !wasPanning) {
         window.suppressNextClickSelection = true;
         const [cx, cy] = getCanvasXYFromClient(e.clientX, e.clientY);
         const world = canvas2World(cx, cy);
@@ -293,12 +312,19 @@ function hideTooltip() {
     if (tooltipEl) tooltipEl.style.display = "none";
 }
 
-function showTooltip(text, xPx, yPx) {
+function showTooltip(text, clientXPx, clientYPx, radiusPx) {
     if (!tooltipEl) return;
     tooltipEl.textContent = text;
-    tooltipEl.style.left = `${xPx}px`;
-    tooltipEl.style.top = `${yPx}px`;
+    // Make visible to measure height
     tooltipEl.style.display = "block";
+    // Position temporarily to get correct size
+    tooltipEl.style.left = `0px`;
+    tooltipEl.style.top = `0px`;
+    const tooltipHeight = tooltipEl.offsetHeight || 0;
+    const left = Math.round(clientXPx + (radiusPx || 0));
+    const top = Math.round(clientYPx - (radiusPx || 0) - tooltipHeight);
+    tooltipEl.style.left = `${left}px`;
+    tooltipEl.style.top = `${top}px`;
 }
 
 function updateTouchTooltip(e) {
@@ -309,7 +335,7 @@ function updateTouchTooltip(e) {
     if (hovered) {
         const scoreStr = Number(hovered.player_score).toLocaleString();
         const tooltipText = `${hovered.player_name} (${scoreStr})\n${formatTimestamp(hovered.placement_time)}`;
-        showTooltip(tooltipText, e.clientX + 12, e.clientY + 12);
+        showTooltip(tooltipText, e.clientX, e.clientY, hovered.rPx);
     } else {
         hideTooltip();
     }
