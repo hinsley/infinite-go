@@ -282,6 +282,25 @@
                     updatePlayerScore(currentPlayer, delta);
                     updateHeaderUserScoreTo(cur + delta);
                 }
+ 
+                // Resolve the display color for a given player using the same mapping as the board
+                function getColorForPlayer(playerName) {
+                    try {
+                        if (typeof playerColorMap !== 'object' || playerColorMap === null) {
+                            if (typeof buildPlayerColorMap === 'function') {
+                                // Build the global mapping once from all stones
+                                playerColorMap = buildPlayerColorMap(stonesData, currentPlayer);
+                            } else {
+                                playerColorMap = {};
+                            }
+                        }
+                    } catch (e) {
+                        playerColorMap = playerColorMap || {};
+                    }
+                    if (currentPlayer && playerName === currentPlayer) return '#000000';
+                    // Fallback to white if player not present in mapping
+                    return (playerColorMap && playerColorMap[playerName]) ? playerColorMap[playerName] : '#FFFFFF';
+                }
 
                 function rebuildLeaderboard(x, y) {
                     const container = document.getElementById('color-legend');
@@ -308,7 +327,8 @@
                         entry.setAttribute('class', 'legend-entry');
                         const colorIcon = document.createElement('div');
                         colorIcon.setAttribute('class', 'color-icon');
-                        colorIcon.setAttribute('style', `background-color: ${color_code[i % color_code.length]};`);
+                        const colorHex = getColorForPlayer(sortedNames[i]);
+                        colorIcon.setAttribute('style', `background-color: ${colorHex};`);
                         entry.appendChild(colorIcon);
                         const scoreVal = Number(sortedScores[i]).toLocaleString();
                         entry.append(` ${sortedNames[i]} (${scoreVal})`);
