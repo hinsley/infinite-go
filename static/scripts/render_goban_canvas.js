@@ -304,10 +304,26 @@ function drawStones(stones, player) {
 
 function drawSelection() {
     if (selectedCell.x === null || selectedCell.y === null) return;
-    const topLeft = world2Canvas(selectedCell.x, selectedCell.y + 1);
-    // Grey square overlay of one grid cell, similar to index cursor overlay
+    // Center the 1x1 overlay square on the stone at (x, y)
+    const topLeft = world2Canvas(selectedCell.x - 0.5, selectedCell.y + 0.5);
     ctx.fillStyle = "rgba(0,0,0,0.25)";
     ctx.fillRect(topLeft[0], topLeft[1], rulingSpacing, -rulingSpacing);
+}
+
+function drawActiveAreaBoundary() {
+    if (selectedCell.x === null || selectedCell.y === null) return;
+    // 13x13 positions centered at selected cell means 12 cells wide/high.
+    // Top-left corner lies 6 cells left and 6 cells up in world coords.
+    const topLeft = world2Canvas(selectedCell.x - 6, selectedCell.y + 6);
+    const widthPx = 12 * rulingSpacing;
+    const heightPx = -12 * rulingSpacing;
+
+    ctx.save();
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = rulingWidth * rulingSpacing; // match grid line thickness
+    ctx.setLineDash([]);
+    ctx.strokeRect(topLeft[0], topLeft[1], widthPx, heightPx);
+    ctx.restore();
 }
 
 function world2Canvas(world_x, world_y) {
@@ -327,6 +343,8 @@ function drawLoop(stones, player) {
     setInterval(() => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawGoban();
+        // Boundary must appear above the rulings but behind stones
+        drawActiveAreaBoundary();
         drawStones(stones, player);
         drawSelection();
     }, 1000 / drawRate);
