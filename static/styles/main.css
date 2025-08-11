@@ -19,6 +19,9 @@ div#goban-container {
     flex-wrap: wrap;
     outline: solid 1px black;
     background-color: #cfa570;
+    /* Ensure touch interactions are handled by canvas, not the browser */
+    touch-action: none;
+    -ms-touch-action: none;
 }
 
 div#goban:hover {

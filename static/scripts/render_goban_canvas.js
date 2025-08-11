@@ -123,6 +123,136 @@ canvas.addEventListener("wheel", (e) => {
     _y += cursor_world_coords[1] - new_cursor_world_coords[1];
 }, { passive: false });
 
+// Pointer events for touch drag and pinch zoom on mobile devices
+let activePointers = new Map();
+let panPointerId = null;
+let initialPinchDistance = null;
+let initialPinchCenterCanvas = null; // [x, y] in canvas pixels
+let initialPinchWorld = null; // [x, y] in world coords under pinch center at pinch start
+let pinchBaseRulingSpacing = null;
+
+function getCanvasXYFromClient(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    return [clientX - rect.left, clientY - rect.top];
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return; // keep mouse path separate
+    e.preventDefault();
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    if (activePointers.size === 1) {
+        // Begin single-finger pan
+        panPointerId = e.pointerId;
+        const [cx, cy] = getCanvasXYFromClient(e.clientX, e.clientY);
+        cursor_x_initial = cx;
+        cursor_y_initial = cy;
+        panning = true;
+        hideTooltip();
+    } else if (activePointers.size === 2) {
+        // Begin pinch
+        panning = false;
+        _x_offset = 0;
+        _y_offset = 0;
+        const pts = Array.from(activePointers.values());
+        const [c1x, c1y] = getCanvasXYFromClient(pts[0].clientX, pts[0].clientY);
+        const [c2x, c2y] = getCanvasXYFromClient(pts[1].clientX, pts[1].clientY);
+        initialPinchDistance = Math.hypot(c2x - c1x, c2y - c1y);
+        initialPinchCenterCanvas = [(c1x + c2x) / 2, (c1y + c2y) / 2];
+        pinchBaseRulingSpacing = rulingSpacing;
+        initialPinchWorld = [
+            x() + initialPinchCenterCanvas[0] / rulingSpacing,
+            y() + initialPinchCenterCanvas[1] / rulingSpacing
+        ];
+        hideTooltip();
+    }
+}, { passive: false });
+
+canvas.addEventListener('pointermove', (e) => {
+    if (e.pointerType === 'mouse') return;
+    if (!activePointers.has(e.pointerId)) return;
+    e.preventDefault();
+    activePointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    if (activePointers.size >= 2 && initialPinchDistance != null) {
+        // Handle pinch-zoom with two active pointers
+        const pts = Array.from(activePointers.values());
+        const [c1x, c1y] = getCanvasXYFromClient(pts[0].clientX, pts[0].clientY);
+        const [c2x, c2y] = getCanvasXYFromClient(pts[1].clientX, pts[1].clientY);
+        const dist = Math.hypot(c2x - c1x, c2y - c1y);
+        const center = [(c1x + c2x) / 2, (c1y + c2y) / 2];
+        const scale = dist / (initialPinchDistance || 1);
+        const newSpacing = clamp(pinchBaseRulingSpacing * scale, 5, 50);
+
+        // Update zoom and adjust viewport to keep the world under the pinch center stable
+        rulingSpacing = newSpacing;
+        _x_offset = 0;
+        _y_offset = 0;
+        _x = initialPinchWorld[0] - center[0] / rulingSpacing;
+        _y = initialPinchWorld[1] - center[1] / rulingSpacing;
+        hideTooltip();
+        return;
+    }
+
+    // Single-finger pan
+    if (panning && e.pointerId === panPointerId) {
+        const [cx, cy] = getCanvasXYFromClient(e.clientX, e.clientY);
+        _x_offset = cursor_x_initial - cx;
+        _y_offset = cursor_y_initial - cy;
+        hideTooltip();
+    }
+}, { passive: false });
+
+function endPointer(e) {
+    if (e.pointerType === 'mouse') return;
+    if (!activePointers.has(e.pointerId)) return;
+    e.preventDefault();
+
+    // If releasing after a drag, mark to suppress the following click selection
+    if (panning && e.pointerId === panPointerId) {
+        const dragDistance = Math.hypot(_x_offset, _y_offset);
+        if (dragDistance > 3) {
+            window.suppressNextClickSelection = true;
+        }
+        _x += _x_offset / rulingSpacing;
+        _y += _y_offset / rulingSpacing;
+        _x_offset = 0;
+        _y_offset = 0;
+        panning = false;
+    }
+
+    activePointers.delete(e.pointerId);
+    try { canvas.releasePointerCapture(e.pointerId); } catch (_) {}
+
+    if (activePointers.size === 0) {
+        // End of all touch interactions
+        initialPinchDistance = null;
+        initialPinchCenterCanvas = null;
+        initialPinchWorld = null;
+        pinchBaseRulingSpacing = null;
+        panPointerId = null;
+    } else if (activePointers.size === 1) {
+        // Transition from pinch to pan with remaining pointer
+        const [remainingId, pt] = Array.from(activePointers.entries())[0];
+        panPointerId = remainingId;
+        const [cx, cy] = getCanvasXYFromClient(pt.clientX, pt.clientY);
+        cursor_x_initial = cx;
+        cursor_y_initial = cy;
+        panning = true;
+        initialPinchDistance = null;
+        initialPinchCenterCanvas = null;
+        initialPinchWorld = null;
+        pinchBaseRulingSpacing = null;
+    }
+
+    hideTooltip();
+}
+
+canvas.addEventListener('pointerup', endPointer, { passive: false });
+canvas.addEventListener('pointercancel', endPointer, { passive: false });
+canvas.addEventListener('pointerleave', endPointer, { passive: false });
+
 function hideTooltip() {
     if (tooltipEl) tooltipEl.style.display = "none";
 }
