@@ -39,6 +39,17 @@ window.setSelectedCell = function(x, y) {
     selectedCell.x = Number(x);
     selectedCell.y = Number(y);
 };
+// Center viewport on a given world coordinate
+window.centerOnWorldCoord = function(x, y) {
+    // reset any transient offsets
+    _x_offset = 0;
+    _y_offset = 0;
+    // compute top-left world position so that (x,y) is centered
+    const halfCellsX = canvas.width / (2 * rulingSpacing);
+    const halfCellsY = canvas.height / (2 * rulingSpacing);
+    _x = Number(x) - halfCellsX;
+    _y = Number(y) - halfCellsY;
+};
 
 canvas.addEventListener("mousedown", (e) => {
     // Start cursor tracker.

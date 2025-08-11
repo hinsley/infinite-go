@@ -230,6 +230,9 @@
                                 next = pending.sort((a,b)=>a.since-b.since)[0];
                             }
                             applySelection(next.x, next.y);
+                            if (typeof centerOnWorldCoord === 'function') {
+                                centerOnWorldCoord(next.x, next.y);
+                            }
                         });
                     }
                 })();
