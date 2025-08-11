@@ -26,6 +26,8 @@ var cursor_x_initial = null;
 var cursor_y_initial = null;
 
 var panning = false;
+// Flag to suppress click selection immediately after a drag-based pan
+window.suppressNextClickSelection = false;
 
 // Tooltip and hover state
 var tooltipEl = document.getElementById("stone-tooltip");
@@ -80,6 +82,14 @@ canvas.addEventListener("mousemove", (e) => {
 
 ["mouseup", "mouseleave"].forEach((event_name) => {
     canvas.addEventListener(event_name, () => {
+        // If releasing after a drag, mark to suppress the following click selection
+        if (event_name === "mouseup") {
+            const dragDistance = Math.hypot(_x_offset, _y_offset);
+            // Use a small threshold to avoid accidental suppression on micro-movements
+            if (dragDistance > 3) {
+                window.suppressNextClickSelection = true;
+            }
+        }
         _x += _x_offset / rulingSpacing;
         _y += _y_offset / rulingSpacing;
         _x_offset = 0;
@@ -320,7 +330,7 @@ function drawActiveAreaBoundary() {
 
     ctx.save();
     ctx.strokeStyle = "red";
-    ctx.lineWidth = rulingWidth * rulingSpacing; // match grid line thickness
+    ctx.lineWidth = 2 * rulingWidth * rulingSpacing; // doubled thickness for active area boundary
     ctx.setLineDash([]);
     ctx.strokeRect(topLeft[0], topLeft[1], widthPx, heightPx);
     ctx.restore();

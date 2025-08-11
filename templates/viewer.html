@@ -261,6 +261,11 @@
                  (function() {
                      const canvasEl = document.getElementById('goban');
                      canvasEl.addEventListener('click', function(e) {
+                         // Ignore click if it immediately follows a drag/pan
+                         if (window.suppressNextClickSelection) {
+                             window.suppressNextClickSelection = false;
+                             return;
+                         }
                          const world = canvas2World(mouseX(e), mouseY(e));
                          const selX = Math.round(world[0]);
                          const selY = Math.round(world[1]);
