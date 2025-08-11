@@ -330,7 +330,7 @@ function drawActiveAreaBoundary() {
 
     ctx.save();
     ctx.strokeStyle = "red";
-    ctx.lineWidth = 2 * rulingWidth * rulingSpacing; // doubled thickness for active area boundary
+    ctx.lineWidth = 6 * rulingWidth * rulingSpacing;
     ctx.setLineDash([]);
     ctx.strokeRect(topLeft[0], topLeft[1], widthPx, heightPx);
     ctx.restore();
