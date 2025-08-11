@@ -233,6 +233,7 @@ if (typeof setSelectedCell === 'function') {
                 function evolveStatusesAround(x, y) {
                     const region = localRegionStones(stonesData, x, y);
                     const now = Date.now() / 1000;
+                    const changes = [];
                     Object.keys(region).forEach((coords) => {
                         const s = region[coords];
                         const prev = s["status"];
@@ -251,8 +252,10 @@ if (typeof setSelectedCell === 'function') {
                             } else {
                                 PendingStonesIndex.remove(cx, cy);
                             }
+                            changes.push({ x: cx, y: cy, newStatus: next });
                         }
                     });
+                    return changes;
                 }
 
                 function findGroupAndCaptured(originX, originY) {
@@ -321,24 +324,26 @@ if (typeof setSelectedCell === 'function') {
                             const [rx, ry] = removedCoords[i];
                             removeStoneAt(rx, ry);
                         }
-                        return { removedCoords, removedByPlayer, suicideRemoved: 0 };
+                        return { removedCoords, removedByPlayer, suicideRemoved: 0, suicideRemovedCoords: [] };
                     }
                     // Stage 2: suicide check on the placed stone's group
                     const selfRes = findGroupAndCaptured(px, py);
                     if (selfRes.captured) {
                         let count = 0;
+                        const suicideRemovedCoords = [];
                         for (const [, coords] of selfRes.group) {
                             // Sync index on suicide removal (check before deletion)
                             const removedStone = getStoneAt(coords[0], coords[1]);
                             if (removedStone && removedStone.status === 'Pending') {
                                 PendingStonesIndex.remove(coords[0], coords[1]);
                             }
+                            suicideRemovedCoords.push([coords[0], coords[1]]);
                             removeStoneAt(coords[0], coords[1]);
                             count += 1;
                         }
-                        return { removedCoords: [], removedByPlayer: new Map(), suicideRemoved: count };
+                        return { removedCoords: [], removedByPlayer: new Map(), suicideRemoved: count, suicideRemovedCoords };
                     }
-                    return { removedCoords: [], removedByPlayer: new Map(), suicideRemoved: 0 };
+                    return { removedCoords: [], removedByPlayer: new Map(), suicideRemoved: 0, suicideRemovedCoords: [] };
                 }
 
                 function updateHeaderUserScoreTo(value) {
@@ -455,7 +460,7 @@ if (typeof setSelectedCell === 'function') {
                             if (!currentPlayer) return;
 
                             // Evolve statuses in local region (pre-placement)
-                            evolveStatusesAround(selectedX, selectedY);
+                            const statusChanges = evolveStatusesAround(selectedX, selectedY);
                             // Place stone locally
                             const nowTs = Date.now() / 1000;
                             setStoneAt(selectedX, selectedY, {
@@ -492,7 +497,27 @@ if (typeof setSelectedCell === 'function') {
                             updatePendingCountdown(selectedX, selectedY);
                             rebuildLeaderboard(selectedX, selectedY);
 
-                            // Persist on server, then query for authoritative deltas since page load and refresh if any
+                            // Prepare expected server-side events as a result of this action
+                            const expectedEvents = [];
+                            expectedEvents.push({ type: 'place', x: selectedX, y: selectedY });
+                            for (let i = 0; i < statusChanges.length; i++) {
+                                const ch = statusChanges[i];
+                                expectedEvents.push({ type: 'status', x: ch.x, y: ch.y, status: ch.newStatus });
+                            }
+                            if (Array.isArray(cap.removedCoords)) {
+                                for (let i = 0; i < cap.removedCoords.length; i++) {
+                                    const rc = cap.removedCoords[i];
+                                    expectedEvents.push({ type: 'remove', x: rc[0], y: rc[1] });
+                                }
+                            }
+                            if (Array.isArray(cap.suicideRemovedCoords)) {
+                                for (let i = 0; i < cap.suicideRemovedCoords.length; i++) {
+                                    const sc = cap.suicideRemovedCoords[i];
+                                    expectedEvents.push({ type: 'remove', x: sc[0], y: sc[1] });
+                                }
+                            }
+
+                            // Persist on server, then query for authoritative deltas since just before this action on the server
                             fetch(`/go-json?x=${selectedX}&y=${selectedY}`)
                                 .then(r => r.json())
                                 .then(resp => {
@@ -503,13 +528,34 @@ if (typeof setSelectedCell === 'function') {
                                         location.assign(to);
                                         return;
                                     }
-                                    // Query for efficient change log since this viewer loaded
-                                    const since = isFinite(pageLoadEpoch) ? pageLoadEpoch : 0;
+                                    const since = (resp && Number.isFinite(resp.events_since)) ? resp.events_since : (isFinite(pageLoadEpoch) ? pageLoadEpoch : 0);
                                     return fetch(`/board-changes?since=${since}`)
                                         .then(r => r.json())
                                         .then(delta => {
-                                            if (delta && Array.isArray(delta.events) && delta.events.length > 0) {
-                                                // Force a full reload to refresh total board state, not just local optimism
+                                            if (!delta || !Array.isArray(delta.events)) return;
+                                            // Reconcile server events against expected optimistic events
+                                            const expected = expectedEvents.slice();
+                                            const consumed = new Array(expected.length).fill(false);
+                                            function matchesAndConsume(ev) {
+                                                for (let i = 0; i < expected.length; i++) {
+                                                    if (consumed[i]) continue;
+                                                    const ex = expected[i];
+                                                    if (ex.type !== ev.event_type) continue;
+                                                    if (ex.x !== ev.x || ex.y !== ev.y) continue;
+                                                    if (ex.type === 'status' && ex.status !== ev.status) continue;
+                                                    consumed[i] = true;
+                                                    return true;
+                                                }
+                                                return false;
+                                            }
+                                            const unmatched = [];
+                                            for (let i = 0; i < delta.events.length; i++) {
+                                                const ev = delta.events[i];
+                                                if (!matchesAndConsume(ev)) {
+                                                    unmatched.push(ev);
+                                                }
+                                            }
+                                            if (unmatched.length > 0) {
                                                 const to = `/viewer?x=${selectedX}&y=${selectedY}`;
                                                 location.assign(to);
                                             }
@@ -563,15 +609,15 @@ if (typeof setSelectedCell === 'function') {
                                  next = pending.sort((a,b)=>a.since-b.since)[0];
                              }
                              // Only pan if the selected position actually changes
-const prevX = selectedX; const prevY = selectedY;
-applySelection(next.x, next.y);
-if ((prevX !== next.x || prevY !== next.y)) {
-    if (typeof centerAndResetZoom === 'function') {
-        centerAndResetZoom(next.x, next.y);
-    } else if (typeof centerOnWorldCoord === 'function') {
-        centerOnWorldCoord(next.x, next.y);
-    }
-}
+ const prevX = selectedX; const prevY = selectedY;
+ applySelection(next.x, next.y);
+ if ((prevX !== next.x || prevY !== next.y)) {
+     if (typeof centerAndResetZoom === 'function') {
+         centerAndResetZoom(next.x, next.y);
+     } else if (typeof centerOnWorldCoord === 'function') {
+         centerOnWorldCoord(next.x, next.y);
+     }
+ }
 });
                      }
                  })();

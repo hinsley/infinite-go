@@ -107,15 +107,20 @@ def go_json():
     if "user" not in session:
         return jsonify({"success": False, "error": "Not authenticated"}), 401
 
+    # Capture a baseline server timestamp just before any mutation for client delta queries
+    before_ts = time.time()
+
     if move_validation.check_valid_move(session["user"], (x, y)):
         local_stones = stone_db.retrieve_region(x, y)
         for stone_pos in local_stones:
             move_validation.evolve_status(stone_pos)
         stone_db.place_stone(session["user"], x, y)
         captures.perform_captures((x, y))
-        return jsonify({"success": True})
+        after_ts = time.time()
+        return jsonify({"success": True, "events_since": before_ts, "now": after_ts})
     else:
-        return jsonify({"success": False, "error": "Invalid move"}), 200
+        after_ts = time.time()
+        return jsonify({"success": False, "error": "Invalid move", "events_since": before_ts, "now": after_ts}), 200
 
 @app.route("/login")
 def login():
