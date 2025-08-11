@@ -71,6 +71,8 @@ var tooltipEl = document.getElementById("stone-tooltip");
 var visibleStones = []; // [{key, cx, cy, rPx, player_name, player_score}]
 var playerColorMap = null; // {player_name: color}
 var currentPlayerName = null;
+// Track last hover state so a 1s timer can refresh tooltip text (for pending countdown)
+var lastHoverState = null; // {stoneEntry, clientX, clientY}
 
 // Selected cell highlight
 var selectedCell = { x: null, y: null };
@@ -110,6 +112,7 @@ canvas.addEventListener("mousemove", (e) => {
         _x_offset = cursor_x_initial - mouseX(e);
         _y_offset = cursor_y_initial - mouseY(e);
         hideTooltip();
+        lastHoverState = null;
         return;
     }
 
@@ -119,11 +122,12 @@ canvas.addEventListener("mousemove", (e) => {
     const hovered = findHoveredStone(mx, my);
     if (hovered) {
         // Use viewport coordinates for the fixed-position tooltip
-        const scoreStr = Number(hovered.player_score).toLocaleString();
-        const tooltipText = `${hovered.player_name} (${scoreStr})\n${formatTimestamp(hovered.placement_time)}`;
+        const tooltipText = composeTooltipTextForStone(hovered);
         showTooltip(tooltipText, e.clientX, e.clientY, hovered.rPx);
+        lastHoverState = { stoneEntry: hovered, clientX: e.clientX, clientY: e.clientY };
     } else {
         hideTooltip();
+        lastHoverState = null;
     }
 });
 
@@ -348,11 +352,12 @@ function updateTouchTooltip(e) {
     const [cx, cy] = getCanvasXYFromClient(e.clientX, e.clientY);
     const hovered = findHoveredStone(cx, cy);
     if (hovered) {
-        const scoreStr = Number(hovered.player_score).toLocaleString();
-        const tooltipText = `${hovered.player_name} (${scoreStr})\n${formatTimestamp(hovered.placement_time)}`;
+        const tooltipText = composeTooltipTextForStone(hovered);
         showTooltip(tooltipText, e.clientX, e.clientY, hovered.rPx);
+        lastHoverState = { stoneEntry: hovered, clientX: e.clientX, clientY: e.clientY };
     } else {
         hideTooltip();
+        lastHoverState = null;
     }
 }
 
@@ -369,6 +374,49 @@ function formatTimestamp(seconds) {
     const ss = pad(d.getSeconds());
     return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
 }
+
+// Return "HH:mm:ss" for a future epoch time, or 00:00:00 if past
+function remainingHms(unlockEpochSeconds) {
+    const now = Date.now() / 1000;
+    const remaining = Math.max(0, Math.floor(unlockEpochSeconds - now));
+    const sec = remaining % 60;
+    const min = Math.floor((remaining % 3600) / 60);
+    const hrs = Math.floor(remaining / 3600);
+    return `${String(hrs).padStart(2,'0')}:${String(min).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+function composeTooltipTextForStone(entry) {
+    const scoreStr = Number(entry.player_score).toLocaleString();
+    let text = `${entry.player_name} (${scoreStr})\n${formatTimestamp(entry.placement_time)}`;
+    if (entry.status === 'Pending') {
+        const since = Number(entry.last_status_change_time) || 0;
+        const unlockAt = since + 86400;
+        text += `\nUnlocks in ${remainingHms(unlockAt)}`;
+    }
+    return text;
+}
+
+// Expose a helper so the app can refresh the tooltip countdown once per second if needed
+window.refreshHoverTooltipNow = function() {
+    if (!lastHoverState || !tooltipEl) return;
+    const { stoneEntry, clientX, clientY } = lastHoverState;
+    // Rehydrate latest data from stonesData if available
+    try {
+        if (typeof window !== 'undefined' && window.stonesData && stoneEntry && stoneEntry.key) {
+            const s = window.stonesData[stoneEntry.key];
+            if (s) {
+                stoneEntry.player_name = String(s.player_name);
+                stoneEntry.player_score = s.player_score ?? stoneEntry.player_score;
+                stoneEntry.placement_time = s.placement_time ?? stoneEntry.placement_time;
+                stoneEntry.status = s.status || 'Unlocked';
+                stoneEntry.last_status_change_time = s.last_status_change_time ?? stoneEntry.last_status_change_time;
+            }
+        }
+    } catch (_) {}
+    // Recompose tooltip in case countdown changed
+    const tooltipText = composeTooltipTextForStone(stoneEntry);
+    showTooltip(tooltipText, clientX, clientY, stoneEntry.rPx);
+};
 
 function findHoveredStone(mx, my) {
     let winner = null;
@@ -528,7 +576,7 @@ function drawStones(stones, player) {
         ctx.fill();
         ctx.stroke();
 
-        // Save for hover detection
+        // Save for hover detection with status and timing metadata
         visibleStones.push({
             key: key,
             cx: cx,
@@ -536,7 +584,9 @@ function drawStones(stones, player) {
             rPx: rPx,
             player_name: String(stones[key]["player_name"]),
             player_score: stones[key]["player_score"] ?? 0,
-            placement_time: stones[key]["placement_time"] ?? null
+            placement_time: stones[key]["placement_time"] ?? null,
+            status: stones[key]["status"] || 'Unlocked',
+            last_status_change_time: stones[key]["last_status_change_time"] ?? null,
         });
 
         if (stones[key]["status"] != "Unlocked") {
