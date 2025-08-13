@@ -248,6 +248,7 @@ def retrieve_region(x, y):
 
         for entry in stone_entries:
             stones[(entry[1], entry[2])] = {
+                "id":                      entry[0],
                 "player":                  entry[3],
                 "placement_time":          entry[4],
                 "last_status_change_time": entry[5],
@@ -274,6 +275,7 @@ def retrieve():
 
         for entry in stone_entries:
             stones[(entry[1], entry[2])] = {
+                "id":                      entry[0],
                 "player":                  entry[3],
                 "placement_time":          entry[4],
                 "last_status_change_time": entry[5],
@@ -342,25 +344,7 @@ except OSError as e:
 with sqlite3.connect(db_file) as db:
     cur = db.cursor()
 
-    # Check whether the stones table exists.
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' and name='stones';")
-    
-    # If not, create it and place the first (unlocked) stone.
-    if cur.fetchall() == []:
-        cur.execute("""CREATE TABLE stones (
-            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
-            x                       INTEGER NOT NULL,
-            y                       INTEGER NOT NULL,
-            player                  INTEGER NOT NULL,
-            placement_time          REAL NOT NULL,
-            last_status_change_time REAL NOT NULL,
-            status                  TEXT NOT NULL
-        );""")
-
-        place_stone(1, 0, 0)
-        update_status(1, "Unlocked")
-
-    # Ensure the board_events table exists for efficient delta queries
+    # Ensure the board_events table exists for efficient delta queries BEFORE any event logging
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' and name='board_events';")
     if cur.fetchall() == []:
         cur.execute(
@@ -378,3 +362,21 @@ with sqlite3.connect(db_file) as db:
             );
             """
         )
+
+    # Check whether the stones table exists.
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' and name='stones';")
+    
+    # If not, create it and place the first (unlocked) stone.
+    if cur.fetchall() == []:
+        cur.execute("""CREATE TABLE stones (
+            id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+            x                       INTEGER NOT NULL,
+            y                       INTEGER NOT NULL,
+            player                  INTEGER NOT NULL,
+            placement_time          REAL NOT NULL,
+            last_status_change_time REAL NOT NULL,
+            status                  TEXT NOT NULL
+        );""")
+
+        place_stone(1, 0, 0)
+        update_status(1, "Unlocked")
