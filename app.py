@@ -348,6 +348,28 @@ def board_changes():
 
     events = stone_db.get_events_since(since)
     now_ts = time.time()
+    # Enrich with player_name and player_score for efficient client updates
+    name_cache = {}
+    score_cache = {}
+    for ev in events:
+        pid = ev.get("player")
+        if pid is None:
+            ev["player_name"] = None
+            ev["player_score"] = None
+            continue
+        if pid not in name_cache:
+            try:
+                name_cache[pid] = user_db.get_user_info(pid, "username")[0]
+            except Exception:
+                name_cache[pid] = None
+        if pid not in score_cache:
+            try:
+                score_cache[pid] = stone_db.player_score(pid)
+            except Exception:
+                score_cache[pid] = None
+        ev["player_name"] = name_cache[pid]
+        ev["player_score"] = score_cache[pid]
+
     return jsonify({
         "since": since,
         "now": now_ts,

@@ -300,13 +300,10 @@
                 }
                 window.loadAndMergeRegion = loadAndMergeRegion;
 
-                // Called by new_pending_poll.js when the server reports a newly pending stone
-                window.onNewPendingStone = function(details) {
-                    try {
-                        if (!details || typeof details.x !== 'number' || typeof details.y !== 'number') return;
-                        loadAndMergeRegion(details.x, details.y);
-                    } catch (_) {}
-                };
+                // Called by new_pending_poll.js when the server reports a newly pending stone.
+                // Keep the button label behavior the same; do not auto-merge here anymore because
+                // the global delta poller below will take care of syncing all updates.
+                window.onNewPendingStone = function(details) { /* no-op for data; label handled by poller script */ };
 
                 function evolveStatusesAround(x, y) {
                     const region = localRegionStones(stonesData, x, y);
@@ -529,6 +526,63 @@
  
                 // Wire up buttons
                 (function() {
+                    // Global delta poller: keep client board in sync with all server-side changes
+                    (function startDeltaPoller(){
+                        let lastTs = isFinite(pageLoadEpoch) ? pageLoadEpoch : 0;
+                        async function pollOnce() {
+                            try {
+                                const resp = await fetch(`/board-changes?since=${lastTs}`);
+                                const payload = await resp.json();
+                                if (!payload || !Array.isArray(payload.events)) return;
+                                // Apply events in order
+                                for (let i = 0; i < payload.events.length; i++) {
+                                    const ev = payload.events[i];
+                                    const key = `${ev.x} ${ev.y}`;
+                                    if (ev.event_type === 'remove') {
+                                        // Maintain index before deletion
+                                        const prev = stonesData[key];
+                                        if (prev && prev.status === 'Pending') {
+                                            PendingStonesIndex.remove(ev.x, ev.y);
+                                        }
+                                        delete stonesData[key];
+                                    } else if (ev.event_type === 'place' || ev.event_type === 'status') {
+                                        const row = stonesData[key] || {};
+                                        // Use enriched fields for name/score when provided
+                                        if (ev.player_name != null) row.player_name = String(ev.player_name);
+                                        if (ev.player_score != null) row.player_score = ev.player_score;
+                                        if (typeof ev.placement_time === 'number') row.placement_time = ev.placement_time;
+                                        if (typeof ev.last_status_change_time === 'number') row.last_status_change_time = ev.last_status_change_time;
+                                        if (typeof ev.status === 'string') row.status = ev.status;
+                                        stonesData[key] = row;
+                                        // Keep PendingStonesIndex in sync
+                                        const isPending = row.status === 'Pending';
+                                        if (isPending) {
+                                            PendingStonesIndex.add(ev.x, ev.y, Number(row.last_status_change_time) || 0);
+                                        } else {
+                                            PendingStonesIndex.remove(ev.x, ev.y);
+                                        }
+                                        // Update cached global scores when provided
+                                        if (ev.player_name && typeof ev.player_score === 'number') {
+                                            const cur = playerScores.get(ev.player_name) ?? 0;
+                                            if (cur !== ev.player_score) {
+                                                playerScores.set(ev.player_name, ev.player_score);
+                                                setAllStonesScoreForPlayer(ev.player_name, ev.player_score);
+                                            }
+                                        }
+                                    }
+                                }
+                                // Refresh selection-dependent UI
+                                updatePlaceStoneDisabled(selectedX, selectedY);
+                                updatePendingCountdown(selectedX, selectedY);
+                                rebuildLeaderboard(selectedX, selectedY);
+                                if (typeof window.refreshHoverTooltipNow === 'function') window.refreshHoverTooltipNow();
+                                if (typeof payload.now === 'number') lastTs = payload.now;
+                            } catch (e) {
+                                // ignore transient errors
+                            }
+                        }
+                        setInterval(pollOnce, 3000);
+                    })();
                     const placeBtn = document.getElementById('placeStone');
                     if (placeBtn) {
                         placeBtn.addEventListener('click', function() {
@@ -642,10 +696,7 @@
                                 // Oldest overall
                                 next = pending.sort((a,b)=>a.since-b.since)[0];
                             }
-                            // Prefetch the region around the destination to refresh the local board
-                            if (typeof loadAndMergeRegion === 'function') {
-                                loadAndMergeRegion(next.x, next.y);
-                            }
+                            // No need to prefetch the region here; the global delta poller keeps the board synced
                             // Only pan if the selected position actually changes
                             const prevX = selectedX; const prevY = selectedY;
                             applySelection(next.x, next.y);
