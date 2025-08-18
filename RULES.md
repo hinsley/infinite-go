@@ -33,9 +33,9 @@ After a legal placement:
 - As in typical Go, a group that secures two separate eyes is unconditionally alive; attempts to fill an eye without capture self-remove due to suicide and leave the group intact.
 
 ### Practical consequences vs. normal Go
-- **No turns**: Anyone can play at any time; the locality system creates de facto “turns” within each 13×13 neighborhood.
+- **No turns**: Anyone can play at any time; the local “Pending“ system creates de facto “turns” within each 13×13 neighborhood. After 24 hours, your Pending stones are Unlocked and another player can jump into the fight.
 - **No ko**: Typical ko fights collapse into immediate recaptures. Life-and-death still matters.
-- **Local tempo**: After you play locally, you generally cannot immediately add another local move; someone else must respond locally or 24 hours must pass to unlock.
+- **Local tempo**: After you play locally, you generally cannot immediately add another local move; someone else must respond locally.
 - **Connectivity requirement**: You cannot start a brand-new island far away; a legal move must have at least one stone already in its 13×13 box. The `SAI` seed bootstraps the initial play.
 
 ### Quick reference
