@@ -164,11 +164,18 @@ canvas.addEventListener("wheel", (e) => {
     // Prevent page scrolling while zooming inside the board view
     e.preventDefault();
 
+    // Normalize wheel delta and ignore zero/non-finite values to avoid NaN
+    const dy = Number(e.deltaY);
+    if (!Number.isFinite(dy) || dy === 0) {
+        return;
+    }
+    const direction = dy > 0 ? 1 : -1;
+
     // Zoom around the cursor.
     // Store the current cursor position in world coordinates.
     var cursor_world_coords = canvas2World(mouseX(e), mouseY(e));
     const limits = getDynamicZoomLimits();
-    rulingSpacing = clamp(rulingSpacing - (e.deltaY / Math.abs(e.deltaY)) * zoomSpeed, limits[0], limits[1]);
+    rulingSpacing = clamp(rulingSpacing - direction * zoomSpeed, limits[0], limits[1]);
     // Move the viewport to restore the cursor position.
     var new_cursor_world_coords = canvas2World(mouseX(e), mouseY(e));
     _x += cursor_world_coords[0] - new_cursor_world_coords[0];
