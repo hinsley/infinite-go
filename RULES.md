@@ -24,7 +24,7 @@ A move at a point is legal iff all are true:
 - You do not currently have any Locked stone in that 13×13 box.
 - If there are any Pending stones in that box, they all belong to you.
 
-These constraints are in addition to normal Go legality; after placement, captures (including suicide) are resolved.
+These constraints are in addition to normal Go legality (minus Ko rule and no-suicide rule); after placement, captures (including suicide) are resolved.
 
 ### Capture and suicide resolution
 After a legal placement:
