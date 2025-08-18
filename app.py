@@ -103,12 +103,51 @@ def login():
 def new_pending_poll() -> Response:
     """
     Checks if any of the player's stones were updated to pending status
-    since the polling start time.
+    since the polling start time. If a newly pending stone exists, also return
+    its coordinates so the client can auto-refresh that region.
     """
-    return jsonify(stone_db.new_pending(
-        int(request.args.get("player")),
-        int(request.args.get("polling_start_time"))
-    ))
+    user_id = int(request.args.get("player"))
+    since = float(request.args.get("polling_start_time"))
+    has_new = stone_db.new_pending(user_id, since)
+    if not has_new:
+        return jsonify(False)
+    details = stone_db.new_pending_details(user_id, since)
+    return jsonify({
+        "hasNew": True,
+        "x": details["x"],
+        "y": details["y"],
+        "last_status_change_time": details["last_status_change_time"],
+    })
+
+@app.route("/region", methods=["GET"])
+def region():
+    """
+    Returns the 13x13 region of stones centered on (x, y) with player names and scores,
+    matching the shape the viewer expects. Intended for incremental refreshes.
+    """
+    try:
+        x = int(request.args.get("x"))
+        y = int(request.args.get("y"))
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Invalid coordinates"}), 400
+
+    stones = stone_db.retrieve_region(x, y)
+
+    # Attach player names and scores
+    out = {}
+    for (sx, sy), row in stones.items():
+        player_id = row["player"]
+        name = user_db.get_user_info(player_id, "username")[0]
+        score = stone_db.player_score(player_id)
+        out[f"{sx} {sy}"] = {
+            "player_name": name,
+            "player_score": score,
+            "status": row["status"],
+            "placement_time": row["placement_time"],
+            "last_status_change_time": row["last_status_change_time"],
+        }
+
+    return jsonify({"success": True, "stones": out})
 
 @app.route("/process-login", methods=["POST"])
 def process_login():
