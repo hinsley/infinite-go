@@ -59,6 +59,31 @@ def new_pending(user_id: int, since: float) -> bool:
         
         return True # A pending stone was found.
 
+def new_pending_details(user_id: int, since: float):
+    """
+    Returns details for the oldest stone (by last_status_change_time) that became Pending
+    after `since` for the given user. If none exist, returns None.
+    The return shape is a dict: { "x": int, "y": int, "last_status_change_time": float }.
+    """
+    with sqlite3.connect(db_file) as db:
+        cur = db.cursor()
+
+        cur.execute(
+            """
+            SELECT x, y, last_status_change_time
+            FROM stones
+            WHERE player = ? AND status = 'Pending' AND last_status_change_time > ?
+            ORDER BY last_status_change_time ASC
+            LIMIT 1;
+            """,
+            [user_id, since]
+        )
+
+        row = cur.fetchone()
+        if row is None:
+            return None
+        return {"x": row[0], "y": row[1], "last_status_change_time": row[2]}
+
 def next_pending_location(user_id: int, current_coords: Optional[Tuple[int, int]] = None) -> Optional[Tuple[int, int]]:
     """
     Retrieves the next pending stone's coordinates. If current_coords is not specified (or is not pending),

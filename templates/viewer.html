@@ -90,42 +90,42 @@
                 let selectedY = Number({{ cursor[1] }});
                 
                 // Initialize canvas draw loop and selected cell highlight
-drawLoop(stonesData, currentPlayer);
-if (typeof setSelectedCell === 'function') {
-    setSelectedCell(selectedX, selectedY);
-}
+                drawLoop(stonesData, currentPlayer);
+                if (typeof setSelectedCell === 'function') {
+                    setSelectedCell(selectedX, selectedY);
+                }
 
-// On first load, pan to selection (URL if provided, else server default) and reset zoom to initial level
-(function() {
-    const params = new URLSearchParams(location.search);
-    const hasX = params.has('x');
-    const hasY = params.has('y');
-    let cx = selectedX;
-    let cy = selectedY;
-    if (hasX && hasY) {
-        const ux = Number(params.get('x'));
-        const uy = Number(params.get('y')); 
-        if (Number.isFinite(ux) && Number.isFinite(uy)) {
-            cx = ux;
-            cy = uy;
-        }
-    }
-    if (typeof centerAndResetZoom === 'function') {
-        centerAndResetZoom(cx, cy);
-    } else if (typeof centerOnWorldCoord === 'function') {
-        centerOnWorldCoord(cx, cy);
-    }
-})();
+                // On first load, pan to selection (URL if provided, else server default) and reset zoom to initial level
+                (function() {
+                    const params = new URLSearchParams(location.search);
+                    const hasX = params.has('x');
+                    const hasY = params.has('y');
+                    let cx = selectedX;
+                    let cy = selectedY;
+                    if (hasX && hasY) {
+                        const ux = Number(params.get('x'));
+                        const uy = Number(params.get('y'));
+                        if (Number.isFinite(ux) && Number.isFinite(uy)) {
+                            cx = ux;
+                            cy = uy;
+                        }
+                    }
+                    if (typeof centerAndResetZoom === 'function') {
+                        centerAndResetZoom(cx, cy);
+                    } else if (typeof centerOnWorldCoord === 'function') {
+                        centerOnWorldCoord(cx, cy);
+                    }
+                })();
  
-                 function updateUrl(x, y) {
-                     const newUrl = `${location.pathname}?x=${x}&y=${y}`;
-                     history.replaceState({}, '', newUrl);
-                 }
+                function updateUrl(x, y) {
+                    const newUrl = `${location.pathname}?x=${x}&y=${y}`;
+                    history.replaceState({}, '', newUrl);
+                }
  
-                 function updateCursorInfo(x, y) {
-                     const el = document.getElementById('cursor-info');
-                     if (el) el.textContent = `X: ${x}, Y: ${y}`;
-                 }
+                function updateCursorInfo(x, y) {
+                    const el = document.getElementById('cursor-info');
+                    if (el) el.textContent = `X: ${x}, Y: ${y}`;
+                }
  
                 function getStoneKey(x, y) { return `${x} ${y}`; }
                 function hasStoneAt(x, y) { return Object.prototype.hasOwnProperty.call(stonesData, getStoneKey(x, y)); }
@@ -180,60 +180,131 @@ if (typeof setSelectedCell === 'function') {
                     return out;
                 }
  
-                 function updatePlaceStoneDisabled(x, y) {
-                     const btn = document.getElementById('placeStone');
-                     if (!btn) return;
-                     const regionStones = localRegionStones(stonesData, x, y);
-                     let validMove = Object.keys(regionStones).length > 0;
-                     Object.keys(regionStones).forEach((coords) => {
-                         const s = regionStones[coords];
-                         if (
-                             `${x} ${y}` === coords ||
-                             (s["status"] === "Locked" && s["player_name"] === currentPlayer) ||
-                             (s["status"] === "Pending" && s["player_name"] !== currentPlayer)
-                         ) {
-                             validMove = false;
-                         }
-                     });
-                     if (!validMove) {
-                         btn.setAttribute('disabled', true);
-                     } else {
-                         btn.removeAttribute('disabled');
-                     }
-                     return validMove;
-                 }
+                function updatePlaceStoneDisabled(x, y) {
+                    const btn = document.getElementById('placeStone');
+                    if (!btn) return;
+                    const regionStones = localRegionStones(stonesData, x, y);
+                    let validMove = Object.keys(regionStones).length > 0;
+                    Object.keys(regionStones).forEach((coords) => {
+                        const s = regionStones[coords];
+                        if (
+                            `${x} ${y}` === coords ||
+                            (s["status"] === "Locked" && s["player_name"] === currentPlayer) ||
+                            (s["status"] === "Pending" && s["player_name"] !== currentPlayer)
+                        ) {
+                            validMove = false;
+                        }
+                    });
+                    if (!validMove) {
+                        btn.setAttribute('disabled', true);
+                    } else {
+                        btn.removeAttribute('disabled');
+                    }
+                    return validMove;
+                }
  
-                 let countdownIntervalId = null;
-                 function updatePendingCountdown(x, y) {
-                     const el = document.getElementById('pending-countdown');
-                     if (!el) return;
-                     if (countdownIntervalId !== null) {
-                         clearInterval(countdownIntervalId);
-                         countdownIntervalId = null;
-                     }
-                     const key = `${x} ${y}`;
-                     const stone = stonesData[key];
-                     if (!stone || stone["status"] !== 'Pending') {
-                         el.textContent = '';
-                         return;
-                     }
-                     const pendingSince = Number(stone["last_status_change_time"]);
-                     function epoch() { return Date.now() / 1000; }
-                     function tick() {
-                         const remaining = Math.floor(pendingSince + 86400 - epoch());
-                         if (remaining > 0) {
-                             const sec = remaining % 60;
-                             const min = Math.floor((remaining % 3600) / 60);
-                             const hrs = Math.floor(remaining / 3600);
-                             el.textContent = `${hrs.toString().padStart(2,'0')}:${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')} remaining until stone is unlocked.`;
-                         } else {
-                             el.textContent = 'Stone unlocked; refresh to update.';
-                         }
-                     }
-                     tick();
-                     countdownIntervalId = setInterval(tick, 1000);
-                 }
- 
+                let countdownIntervalId = null;
+                function updatePendingCountdown(x, y) {
+                    const el = document.getElementById('pending-countdown');
+                    if (!el) return;
+                    if (countdownIntervalId !== null) {
+                        clearInterval(countdownIntervalId);
+                        countdownIntervalId = null;
+                    }
+                    const key = `${x} ${y}`;
+                    const stone = stonesData[key];
+                    if (!stone || stone["status"] !== 'Pending') {
+                        el.textContent = '';
+                        return;
+                    }
+                    const pendingSince = Number(stone["last_status_change_time"]);
+                    function epoch() { return Date.now() / 1000; }
+                    function tick() {
+                        const remaining = Math.floor(pendingSince + 86400 - epoch());
+                        if (remaining > 0) {
+                            const sec = remaining % 60;
+                            const min = Math.floor((remaining % 3600) / 60);
+                            const hrs = Math.floor(remaining / 3600);
+                            el.textContent = `${hrs.toString().padStart(2,'0')}:${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')} remaining until stone is unlocked.`;
+                        } else {
+                            el.textContent = 'Stone unlocked; refresh to update.';
+                        }
+                    }
+                    tick();
+                    countdownIntervalId = setInterval(tick, 1000);
+                }
+
+                // Merge a server-provided 13x13 region into the client state and keep indices/UI in sync
+                function mergeRegionIntoClient(centerX, centerY, regionStones) {
+                    if (!regionStones || typeof regionStones !== 'object') return;
+                    const incomingKeys = new Set(Object.keys(regionStones));
+                    // Remove stones missing from the server region
+                    for (let ix = centerX - 6; ix <= centerX + 6; ix++) {
+                        for (let iy = centerY - 6; iy <= centerY + 6; iy++) {
+                            const k = `${ix} ${iy}`;
+                            if (!incomingKeys.has(k) && stonesData[k]) {
+                                const prev = stonesData[k];
+                                if (prev && prev.status === 'Pending') {
+                                    PendingStonesIndex.remove(ix, iy);
+                                }
+                                delete stonesData[k];
+                            }
+                        }
+                    }
+                    // Upsert stones from server and maintain indices and player scores
+                    Object.keys(regionStones).forEach((k) => {
+                        const parts = k.split(' ');
+                        const sx = parseInt(parts[0], 10);
+                        const sy = parseInt(parts[1], 10);
+                        const incoming = regionStones[k];
+                        const prev = stonesData[k];
+                        const pname = String(incoming.player_name);
+                        const pscore = Number(incoming.player_score) || 0;
+                        if ((playerScores.get(pname) ?? -1) !== pscore) {
+                            playerScores.set(pname, pscore);
+                            setAllStonesScoreForPlayer(pname, pscore);
+                        }
+                        stonesData[k] = {
+                            player_name: pname,
+                            player_score: pscore,
+                            status: incoming.status,
+                            placement_time: incoming.placement_time,
+                            last_status_change_time: incoming.last_status_change_time,
+                        };
+                        const wasPending = prev && prev.status === 'Pending';
+                        const isPending = incoming.status === 'Pending';
+                        if (!wasPending && isPending) {
+                            PendingStonesIndex.add(sx, sy, Number(incoming.last_status_change_time) || 0);
+                        } else if (wasPending && !isPending) {
+                            PendingStonesIndex.remove(sx, sy);
+                        }
+                    });
+                    updatePlaceStoneDisabled(selectedX, selectedY);
+                    updatePendingCountdown(selectedX, selectedY);
+                    rebuildLeaderboard(selectedX, selectedY);
+                    if (typeof window.refreshHoverTooltipNow === 'function') {
+                        window.refreshHoverTooltipNow();
+                    }
+                }
+                window.mergeRegionIntoClient = mergeRegionIntoClient;
+
+                // Fetch a region from the server and merge it into client state
+                function loadAndMergeRegion(centerX, centerY) {
+                    return fetch(`/region?x=${centerX}&y=${centerY}`)
+                        .then(r => r.json())
+                        .then(payload => {
+                            if (!payload || payload.success !== true || typeof payload.stones !== 'object') return;
+                            mergeRegionIntoClient(centerX, centerY, payload.stones);
+                        })
+                        .catch(() => {});
+                }
+                window.loadAndMergeRegion = loadAndMergeRegion;
+
+                // Called by new_pending_poll.js when the server reports a newly pending stone.
+                // Keep the button label behavior the same; do not auto-merge here anymore because
+                // the global delta poller below will take care of syncing all updates.
+                window.onNewPendingStone = function(details) { /* no-op for data; label handled by poller script */ };
+
                 function evolveStatusesAround(x, y) {
                     const region = localRegionStones(stonesData, x, y);
                     const now = Date.now() / 1000;
@@ -431,33 +502,90 @@ if (typeof setSelectedCell === 'function') {
                 }
                 window.applySelection = applySelection;
  
-                 // Initial UI state based on server-provided cursor
-                 applySelection(selectedX, selectedY);
+                // Initial UI state based on server-provided cursor
+                applySelection(selectedX, selectedY);
  
-                 // Click-to-select: highlight cell and update URL without reload
-                 (function() {
-                     const canvasEl = document.getElementById('goban');
-                     canvasEl.addEventListener('click', function(e) {
-                         // Ignore click if it immediately follows a drag/pan
-                         if (window.suppressNextClickSelection) {
-                             window.suppressNextClickSelection = false;
-                             return;
-                         }
-                         const world = canvas2World(mouseX(e), mouseY(e));
-                         const selX = Math.round(world[0]);
-                         const selY = Math.round(world[1]);
-                         applySelection(selX, selY);
-                     });
-                 })();
+                // Click-to-select: highlight cell and update URL without reload
+                (function() {
+                    const canvasEl = document.getElementById('goban');
+                    canvasEl.addEventListener('click', function(e) {
+                        // Ignore click if it immediately follows a drag/pan
+                        if (window.suppressNextClickSelection) {
+                            window.suppressNextClickSelection = false;
+                            return;
+                        }
+                        const world = canvas2World(mouseX(e), mouseY(e));
+                        const selX = Math.round(world[0]);
+                        const selY = Math.round(world[1]);
+                        applySelection(selX, selY);
+                    });
+                })();
  
-                 // Build color legend (leaderboard) for the active 13x13 area and keep it live
-                 rebuildLeaderboard(selectedX, selectedY);
+                // Build color legend (leaderboard) for the active 13x13 area and keep it live
+                rebuildLeaderboard(selectedX, selectedY);
  
-                 // Wire up buttons
-                 (function() {
-                     const placeBtn = document.getElementById('placeStone');
-                     if (placeBtn) {
-                         placeBtn.addEventListener('click', function() {
+                // Wire up buttons
+                (function() {
+                    // Global delta poller: keep client board in sync with all server-side changes
+                    (function startDeltaPoller(){
+                        let lastTs = isFinite(pageLoadEpoch) ? pageLoadEpoch : 0;
+                        async function pollOnce() {
+                            try {
+                                const resp = await fetch(`/board-changes?since=${lastTs}`);
+                                const payload = await resp.json();
+                                if (!payload || !Array.isArray(payload.events)) return;
+                                // Apply events in order
+                                for (let i = 0; i < payload.events.length; i++) {
+                                    const ev = payload.events[i];
+                                    const key = `${ev.x} ${ev.y}`;
+                                    if (ev.event_type === 'remove') {
+                                        // Maintain index before deletion
+                                        const prev = stonesData[key];
+                                        if (prev && prev.status === 'Pending') {
+                                            PendingStonesIndex.remove(ev.x, ev.y);
+                                        }
+                                        delete stonesData[key];
+                                    } else if (ev.event_type === 'place' || ev.event_type === 'status') {
+                                        const row = stonesData[key] || {};
+                                        // Use enriched fields for name/score when provided
+                                        if (ev.player_name != null) row.player_name = String(ev.player_name);
+                                        if (ev.player_score != null) row.player_score = ev.player_score;
+                                        if (typeof ev.placement_time === 'number') row.placement_time = ev.placement_time;
+                                        if (typeof ev.last_status_change_time === 'number') row.last_status_change_time = ev.last_status_change_time;
+                                        if (typeof ev.status === 'string') row.status = ev.status;
+                                        stonesData[key] = row;
+                                        // Keep PendingStonesIndex in sync
+                                        const isPending = row.status === 'Pending';
+                                        if (isPending) {
+                                            PendingStonesIndex.add(ev.x, ev.y, Number(row.last_status_change_time) || 0);
+                                        } else {
+                                            PendingStonesIndex.remove(ev.x, ev.y);
+                                        }
+                                        // Update cached global scores when provided
+                                        if (ev.player_name && typeof ev.player_score === 'number') {
+                                            const cur = playerScores.get(ev.player_name) ?? 0;
+                                            if (cur !== ev.player_score) {
+                                                playerScores.set(ev.player_name, ev.player_score);
+                                                setAllStonesScoreForPlayer(ev.player_name, ev.player_score);
+                                            }
+                                        }
+                                    }
+                                }
+                                // Refresh selection-dependent UI
+                                updatePlaceStoneDisabled(selectedX, selectedY);
+                                updatePendingCountdown(selectedX, selectedY);
+                                rebuildLeaderboard(selectedX, selectedY);
+                                if (typeof window.refreshHoverTooltipNow === 'function') window.refreshHoverTooltipNow();
+                                if (typeof payload.now === 'number') lastTs = payload.now;
+                            } catch (e) {
+                                // ignore transient errors
+                            }
+                        }
+                        setInterval(pollOnce, 3000);
+                    })();
+                    const placeBtn = document.getElementById('placeStone');
+                    if (placeBtn) {
+                        placeBtn.addEventListener('click', function() {
                             // Client-side validation and immediate update without reload
                             const valid = updatePlaceStoneDisabled(selectedX, selectedY);
                             if (!valid) return;
@@ -501,166 +629,123 @@ if (typeof setSelectedCell === 'function') {
                             updatePendingCountdown(selectedX, selectedY);
                             rebuildLeaderboard(selectedX, selectedY);
 
-                            // Prepare expected server-side events as a result of this action
-                            const expectedEvents = [];
-                            expectedEvents.push({ type: 'place', x: selectedX, y: selectedY });
-                            for (let i = 0; i < statusChanges.length; i++) {
-                                const ch = statusChanges[i];
-                                expectedEvents.push({ type: 'status', x: ch.x, y: ch.y, status: ch.newStatus });
-                            }
-                            if (Array.isArray(cap.removedCoords)) {
-                                for (let i = 0; i < cap.removedCoords.length; i++) {
-                                    const rc = cap.removedCoords[i];
-                                    expectedEvents.push({ type: 'remove', x: rc[0], y: rc[1] });
-                                }
-                            }
-                            if (Array.isArray(cap.suicideRemovedCoords)) {
-                                for (let i = 0; i < cap.suicideRemovedCoords.length; i++) {
-                                    const sc = cap.suicideRemovedCoords[i];
-                                    expectedEvents.push({ type: 'remove', x: sc[0], y: sc[1] });
-                                }
-                            }
-
-                            // Persist on server, then query for authoritative deltas since just before this action on the server
+                            // Persist on server, then retrieve authoritative region for the placed area
                             fetch(`/go-json?x=${selectedX}&y=${selectedY}`)
                                 .then(r => r.json())
                                 .then(resp => {
-                                    // If server rejected the move, force a refresh to reconcile client state
-                                    if (!resp.success) {
-                                        console.warn('Server rejected move:', resp.error);
+                                    if (!resp || resp.success !== true) {
+                                        console.warn('Server rejected move:', resp && resp.error);
                                         const to = `/viewer?x=${selectedX}&y=${selectedY}`;
                                         location.assign(to);
                                         return;
                                     }
-                                    const since = (resp && Number.isFinite(resp.events_since)) ? resp.events_since : (isFinite(pageLoadEpoch) ? pageLoadEpoch : 0);
-                                    return fetch(`/board-changes?since=${since}`)
-                                        .then(r => r.json())
-                                        .then(delta => {
-                                            if (!delta || !Array.isArray(delta.events)) return;
-                                            // Reconcile server events against expected optimistic events
-                                            const expected = expectedEvents.slice();
-                                            const consumed = new Array(expected.length).fill(false);
-                                            function matchesAndConsume(ev) {
-                                                for (let i = 0; i < expected.length; i++) {
-                                                    if (consumed[i]) continue;
-                                                    const ex = expected[i];
-                                                    if (ex.type !== ev.event_type) continue;
-                                                    if (ex.x !== ev.x || ex.y !== ev.y) continue;
-                                                    if (ex.type === 'status' && ex.status !== ev.status) continue;
-                                                    consumed[i] = true;
-                                                    return true;
-                                                }
-                                                return false;
-                                            }
-                                            const unmatched = [];
-                                            for (let i = 0; i < delta.events.length; i++) {
-                                                const ev = delta.events[i];
-                                                if (!matchesAndConsume(ev)) {
-                                                    unmatched.push(ev);
-                                                }
-                                            }
-                                            if (unmatched.length > 0) {
-                                                const to = `/viewer?x=${selectedX}&y=${selectedY}`;
-                                                location.assign(to);
-                                            }
-                                        });
+                                    // Merge server region as the source of truth for the current selection
+                                    if (typeof loadAndMergeRegion === 'function') {
+                                        loadAndMergeRegion(selectedX, selectedY);
+                                    }
                                 })
                                 .catch(err => console.warn('Place stone network error', err));
-                         });
-                     }
-                     const cycleBtn = document.getElementById('cyclePending');
-                     if (cycleBtn) {
-                         cycleBtn.addEventListener('click', function() {
-                             // Compute next pending selection for current player without reload
-                             if (!currentPlayer) return;
-                             const pending = [];
-                             Object.keys(stonesData).forEach((key) => {
-                                 const s = stonesData[key];
-                                 if (s["player_name"] === currentPlayer && s["status"] === 'Pending') {
-                                     const parts = key.split(' ');
-                                     pending.push({
-                                         x: parseInt(parts[0], 10),
-                                         y: parseInt(parts[1], 10),
-                                         since: Number(s["last_status_change_time"]) || 0
-                                     });
-                                 }
-                             });
-                             // Also consult the PendingStonesIndex to ensure coverage
-                             PendingStonesIndex.forEach(({x,y,since}) => {
-                                 const k = `${x} ${y}`;
-                                 const s = stonesData[k];
-                                 if (s && s.player_name === currentPlayer && s.status === 'Pending') {
-                                     pending.push({ x, y, since });
-                                 }
-                             });
-                             if (pending.length === 0) {
-                                 // No pending stones; keep selection
-                                 return;
-                             }
-                             // Determine base time from current selection if it's your pending
-                             let base = 0;
-                             const curKey = `${selectedX} ${selectedY}`;
-                             const curStone = stonesData[curKey];
-                             if (curStone && curStone["player_name"] === currentPlayer && curStone["status"] === 'Pending') {
-                                 base = Number(curStone["last_status_change_time"]) || 0;
-                             }
-                             const younger = pending.filter(p => p.since > base).sort((a,b)=>a.since-b.since);
-                             let next;
-                             if (younger.length > 0) {
-                                 next = younger[0];
-                             } else {
-                                 // Oldest overall
-                                 next = pending.sort((a,b)=>a.since-b.since)[0];
-                             }
-                             // Only pan if the selected position actually changes
- const prevX = selectedX; const prevY = selectedY;
- applySelection(next.x, next.y);
- if ((prevX !== next.x || prevY !== next.y)) {
-     if (typeof centerAndResetZoom === 'function') {
-         centerAndResetZoom(next.x, next.y);
-     } else if (typeof centerOnWorldCoord === 'function') {
-         centerOnWorldCoord(next.x, next.y);
-     }
- }
-});
-                     }
-                 })();
+                        });
+                    }
+                    const cycleBtn = document.getElementById('cyclePending');
+                    if (cycleBtn) {
+                        cycleBtn.addEventListener('click', function() {
+                            // Compute next pending selection for current player without reload
+                            if (!currentPlayer) return;
+                            // If the button shows there are NEW pending stones, reset the label and tab title
+                            if (cycleBtn.innerText.includes('(NEW)')) {
+                                cycleBtn.innerText = 'Cycle pending stones';
+                                document.title = document.title.replace(/^\*+/, '').replace(/\*+$/, '');
+                            }
+                            const pending = [];
+                            Object.keys(stonesData).forEach((key) => {
+                                const s = stonesData[key];
+                                if (s["player_name"] === currentPlayer && s["status"] === 'Pending') {
+                                    const parts = key.split(' ');
+                                    pending.push({
+                                        x: parseInt(parts[0], 10),
+                                        y: parseInt(parts[1], 10),
+                                        since: Number(s["last_status_change_time"]) || 0
+                                    });
+                                }
+                            });
+                            // Also consult the PendingStonesIndex to ensure coverage
+                            PendingStonesIndex.forEach(({x,y,since}) => {
+                                const k = `${x} ${y}`;
+                                const s = stonesData[k];
+                                if (s && s.player_name === currentPlayer && s.status === 'Pending') {
+                                    pending.push({ x, y, since });
+                                }
+                            });
+                            if (pending.length === 0) {
+                                // No pending stones; keep selection
+                                return;
+                            }
+                            // Determine base time from current selection if it's your pending
+                            let base = 0;
+                            const curKey = `${selectedX} ${selectedY}`;
+                            const curStone = stonesData[curKey];
+                            if (curStone && curStone["player_name"] === currentPlayer && curStone["status"] === 'Pending') {
+                                base = Number(curStone["last_status_change_time"]) || 0;
+                            }
+                            const younger = pending.filter(p => p.since > base).sort((a,b)=>a.since-b.since);
+                            let next;
+                            if (younger.length > 0) {
+                                next = younger[0];
+                            } else {
+                                // Oldest overall
+                                next = pending.sort((a,b)=>a.since-b.since)[0];
+                            }
+                            // No need to prefetch the region here; the global delta poller keeps the board synced
+                            // Only pan if the selected position actually changes
+                            const prevX = selectedX; const prevY = selectedY;
+                            applySelection(next.x, next.y);
+                            if ((prevX !== next.x || prevY !== next.y)) {
+                                if (typeof centerAndResetZoom === 'function') {
+                                    centerAndResetZoom(next.x, next.y);
+                                } else if (typeof centerOnWorldCoord === 'function') {
+                                    centerOnWorldCoord(next.x, next.y);
+                                }
+                            }
+                        });
+                    }
+                })();
 
-                  // One-second timer: auto-unlock pending stones and refresh UI/tooltip
-                  (function startPendingUnlockTimer(){
-                      function tryUnlockPending() {
-                          const now = Date.now() / 1000;
-                          // Gather keys to update after iteration
-                          const toUnlock = [];
-                          PendingStonesIndex.forEach(({x,y,since}) => {
-                              if (since + 86400 <= now) {
-                                  toUnlock.push([x,y]);
-                              }
-                          });
-                          if (toUnlock.length > 0) {
-                              for (let i=0;i<toUnlock.length;i++) {
-                                  const [ux, uy] = toUnlock[i];
-                                  const k = `${ux} ${uy}`;
-                                  const s = stonesData[k];
-                                  if (s && s.status === 'Pending') {
-                                      s.status = 'Unlocked';
-                                      s.last_status_change_time = now;
-                                      stonesData[k] = s;
-                                  }
-                                  PendingStonesIndex.remove(ux, uy);
-                              }
-                              // Ensure any selection-dependent UI updates
-                              updatePlaceStoneDisabled(selectedX, selectedY);
-                              updatePendingCountdown(selectedX, selectedY);
-                              rebuildLeaderboard(selectedX, selectedY);
-                          }
-                          // Refresh tooltip countdown while hovering a pending stone
-                          if (typeof window.refreshHoverTooltipNow === 'function') {
-                              window.refreshHoverTooltipNow();
-                          }
-                      }
-                      setInterval(tryUnlockPending, 1000);
-                  })();
-             </script>
+                // One-second timer: auto-unlock pending stones and refresh UI/tooltip
+                (function startPendingUnlockTimer(){
+                    function tryUnlockPending() {
+                        const now = Date.now() / 1000;
+                        // Gather keys to update after iteration
+                        const toUnlock = [];
+                        PendingStonesIndex.forEach(({x,y,since}) => {
+                            if (since + 86400 <= now) {
+                                toUnlock.push([x,y]);
+                            }
+                        });
+                        if (toUnlock.length > 0) {
+                            for (let i=0;i<toUnlock.length;i++) {
+                                const [ux, uy] = toUnlock[i];
+                                const k = `${ux} ${uy}`;
+                                const s = stonesData[k];
+                                if (s && s.status === 'Pending') {
+                                    s.status = 'Unlocked';
+                                    s.last_status_change_time = now;
+                                    stonesData[k] = s;
+                                }
+                                PendingStonesIndex.remove(ux, uy);
+                            }
+                            // Ensure any selection-dependent UI updates
+                            updatePlaceStoneDisabled(selectedX, selectedY);
+                            updatePendingCountdown(selectedX, selectedY);
+                            rebuildLeaderboard(selectedX, selectedY);
+                        }
+                        // Refresh tooltip countdown while hovering a pending stone
+                        if (typeof window.refreshHoverTooltipNow === 'function') {
+                            window.refreshHoverTooltipNow();
+                        }
+                    }
+                    setInterval(tryUnlockPending, 1000);
+                })();
+            </script>
     </body>
 </html>
