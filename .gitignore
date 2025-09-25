@@ -1,3 +1,4 @@
 *.pyc
 *.db
 config.json
+*.before-restore
